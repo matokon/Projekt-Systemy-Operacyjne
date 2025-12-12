@@ -6,7 +6,6 @@
 #include "simulation.h"
 
 int main() {
-    pid_t pid;
 
     printf("[MAIN] %d Start programu\n", getpid());
 
@@ -16,31 +15,13 @@ int main() {
 
     srand(time(NULL) ^ getpid());
 
-    int czas_generacji = 5;
-    time_t start = time(NULL);
+    int duration_sec = 5;
 
     printf("[MAIN %d] Zaczynam generować turystów przez %d s\n",
-           getpid(), czas_generacji);
-
-    while (1) {
-        int ms = (rand() % 900) + 100;
-        usleep(ms * 1000);
-
-        if (time(NULL) - start >= czas_generacji) {
-            break;
-        }
-
-        pid = fork();
-        if (pid == -1) {
-            perror("fork tourist");
-            exit(1);
-        }
-        if (pid == 0) {
-            execl("./tourist", "tourist", (char *)NULL);
-            perror("execl tourist");
-            exit(1);
-        }
-    }
+           getpid(), duration_sec);
+    
+    int tourist_amount = spawn_processes_for_seconds("./tourist", "tourist",duration_sec);
+    printf("[MAIN %d] Wygenerowałem %d turystów\n", getpid(), tourist_amount);
 
 
     printf("[MAIN %d] Zakończyłem generowanie nowych turystów, czekam na dzieci\n",

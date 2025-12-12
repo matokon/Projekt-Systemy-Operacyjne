@@ -11,5 +11,5 @@
 
 
 void start_process(const char *path, const char *name, const char *msg);
-
+int spawn_processes_for_seconds(const char *path, const char *argv0, int duration_sec);
 #endif
