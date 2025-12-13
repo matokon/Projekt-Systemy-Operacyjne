@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <time.h>
+#include "simulation.h"
 
 void  start_process(const char *path, const char *name, const char *msg)
 {

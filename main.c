@@ -7,7 +7,7 @@
 
 int main() {
 
-    printf("[MAIN] %d Start programu\n", getpid());
+    printf(CLR_PINK"[MAIN] %d Start programu" RESET "\n", getpid());
 
     start_process("./cashier", "cashier", "cashier fork");
     start_process("./employee1", "employee1", "employee1 fork");
@@ -17,20 +17,20 @@ int main() {
 
     int duration_sec = 5;
 
-    printf("[MAIN %d] Zaczynam generować turystów przez %d s\n",
+    printf(CLR_PINK"[MAIN %d] Zaczynam generować turystów przez %d s\n"RESET,
            getpid(), duration_sec);
     
     int tourist_amount = spawn_processes_for_seconds("./tourist", "tourist",duration_sec);
-    printf("[MAIN %d] Wygenerowałem %d turystów\n", getpid(), tourist_amount);
+    printf(CLR_PINK"[MAIN %d] Wygenerowałem %d turystów" RESET "\n", getpid(), tourist_amount);
 
 
-    printf("[MAIN %d] Zakończyłem generowanie nowych turystów, czekam na dzieci\n",
+    printf(CLR_PINK"[MAIN %d] Zakończyłem generowanie nowych turystów, czekam na dzieci" RESET "\n",
            getpid());
 
     int status;
     while (wait(&status) > 0) {
     }
 
-    printf("[MAIN %d] Koniec programu\n", getpid());
+    printf(CLR_PINK"[MAIN %d] Koniec programu" RESET "\n", getpid());
     return 0;
 }

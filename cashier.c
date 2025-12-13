@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <unistd.h>
+#include "simulation.h"
 
 int main()
 {
-    printf("    Kasjer Start: %d\n", getpid());
+    printf(CLR_YELLOW"    Kasjer Start: %d" RESET "\n", getpid());
     sleep(10);
-    printf("    Kasjer Koniec: %d\n", getpid());
+    printf(CLR_YELLOW"    Kasjer Koniec: %d" RESET "\n", getpid());
     return 0;
 }
