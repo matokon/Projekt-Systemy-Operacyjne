@@ -3,9 +3,12 @@
 #define SIMULATION_H
 
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
+#include <errno.h>
 #include <pthread.h>
 #include <semaphore.h>
 
@@ -16,6 +19,10 @@
 #define CLR_PINK   "\x1b[1;95m"
 #define RESET "\x1B[0m"
 
-void start_process(const char *path, const char *name, const char *msg);
-int spawn_processes_for_seconds(const char *path, const char *argv0, int duration_sec);
+pid_t start_process(const char *path, const char *argv0, const char *msg);
+pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
+                                          int duration_sec, int *out_count);
+
+void wait_for_pids(pid_t *pids, int count);
+
 #endif

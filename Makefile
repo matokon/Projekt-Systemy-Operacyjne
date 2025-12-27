@@ -27,5 +27,8 @@ employee2: employee2.c
 tourist: tourist.c
 	$(CC) $(CFLAGS) tourist.c -o tourist
 
+ipc.o: ipc.c ipc.h
+	$(CC) $(CFLAGS) -c ipc.c -o ipc.o
+
 clean:
 	rm -f projekt cashier employee1 employee2 tourist *.o

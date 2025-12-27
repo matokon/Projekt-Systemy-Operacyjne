@@ -1,6 +1,12 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
+#include <time.h>
+#include <errno.h>
+#include <sys/msg.h>
+
 #include "simulation.h"
+#include "ipc.h"
 
 int main()
 {
