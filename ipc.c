@@ -1,10 +1,11 @@
-#include "ipc.h"
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include "ipc.h"
 
 static key_t make_key(void) {
     key_t k = ftok(".", 'L');
@@ -27,7 +28,7 @@ int ipc_create_queue(void) {
 
 void ipc_set_env_qid(int qid) {
     char buf[32];
-    snprintf(buf, sizeof(buf), "%d", qid);
+    snprintf(buf, sizeof(buf), "%d", qid); // toread
     if (setenv(IPC_ENV_QID, buf, 1) != 0) {
         perror("setenv");
         exit(1);
@@ -51,16 +52,21 @@ int ipc_destroy_queue(int qid) {
     return 0;
 }
 
-// int ipc_send_shutdown(int qid) { //todo 
-//     cashier_req_t req;
-//     memset(&req, 0, sizeof(req));
-//     req.mtype  = MT_VIP_OR_CTRL;
-//     req.opcode = REQ_SHUTDOWN;
-//     req.pid    = 0;
+int ipc_send(int qid, const ticket_msg_t *m) {
+    for (;;) {
+        if (msgsnd(qid, m, TICKET_MSGSZ, 0) == 0) return 0;
+        if (errno == EINTR) continue;
+        perror("msgsnd");
+        return -1;
+    }
+}
 
-//     if (msgsnd(qid, &req, sizeof(req) - sizeof(long), 0) == -1) {
-//         perror("msgsnd shutdown");
-//         return -1;
-//     }
-//     return 0;
-// }
+int ipc_recv(int qid, long mtype, ticket_msg_t *m, int flags) {
+    for (;;) {
+        ssize_t r = msgrcv(qid, m, TICKET_MSGSZ, mtype, flags);
+        if (r >= 0) return (int)r;
+        if (errno == EINTR) continue;
+        perror("msgrcv");
+        return -1;
+    }
+}

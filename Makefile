@@ -5,30 +5,45 @@ CFLAGS = -Wall -Wextra -O2
 
 all: projekt cashier employee1 employee2 tourist
 
-# GŁÓWNY PROGRAM (rodzic)
-projekt: main.o utils.o
-	$(CC) $(CFLAGS) -o projekt main.o utils.o
+# --------- projekt (main) ---------
+projekt: main.o process_utils.o ipc.o
+	$(CC) $(CFLAGS) -o $@ $^
 
-main.o: main.c simulation.h
-	$(CC) $(CFLAGS) -c main.c -o main.o
+main.o: main.c simulation.h ipc.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-utils.o: utils.c simulation.h
-	$(CC) $(CFLAGS) -c utils.c -o utils.o
+# --------- wspólne utils ---------
+process_utils.o: process_utils.c simulation.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-cashier: cashier.c
-	$(CC) $(CFLAGS) cashier.c -o cashier
-
-employee1: employee1.c
-	$(CC) $(CFLAGS) employee1.c -o employee1
-
-employee2: employee2.c
-	$(CC) $(CFLAGS) employee2.c -o employee2
-
-tourist: tourist.c
-	$(CC) $(CFLAGS) tourist.c -o tourist
-
+# --------- ipc ---------
 ipc.o: ipc.c ipc.h
-	$(CC) $(CFLAGS) -c ipc.c -o ipc.o
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# --------- cashier / employee / tourist ---------
+cashier: cashier.o ipc.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+cashier.o: cashier.c simulation.h ipc.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+employee1: employee1.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+employee1.o: employee1.c simulation.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+employee2: employee2.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+employee2.o: employee2.c simulation.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+tourist: tourist.o ipc.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+tourist.o: tourist.c simulation.h ipc.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f projekt cashier employee1 employee2 tourist *.o

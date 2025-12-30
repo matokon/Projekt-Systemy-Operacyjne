@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
+#include <string.h>
 #include <errno.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -17,6 +18,7 @@
 #define CLR_GREEN  "\x1b[32m"
 #define CLR_YELLOW "\x1b[33m"
 #define CLR_PINK   "\x1b[1;95m"
+#define CLR_RED_B  "\x1b[1;31m"
 #define RESET "\x1B[0m"
 
 pid_t start_process(const char *path, const char *argv0, const char *msg);
