@@ -12,6 +12,9 @@ projekt: main.o process_utils.o ipc.o
 main.o: main.c simulation.h ipc.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
+data_randomization.o: data_randomization.c simulation.h ipc.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
 # --------- wspólne utils ---------
 process_utils.o: process_utils.c simulation.h
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -21,7 +24,7 @@ ipc.o: ipc.c ipc.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # --------- cashier / employee / tourist ---------
-cashier: cashier.o ipc.o
+cashier: cashier.o ipc.o data_randomization.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 cashier.o: cashier.c simulation.h ipc.h
@@ -39,7 +42,7 @@ employee2: employee2.o
 employee2.o: employee2.c simulation.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-tourist: tourist.o ipc.o
+tourist: tourist.o ipc.o data_randomization.o process_utils.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 tourist.o: tourist.c simulation.h ipc.h

@@ -1,6 +1,7 @@
 #pragma once
 #include <sys/types.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #define IPC_ENV_QID "CABLECAR_QID"
 
@@ -47,13 +48,14 @@ typedef struct {
     //odpowiedź kasjera
     status_t status;        // ST_OK albo powód odrzucenia
     pass_type_t assigned_pass; // co kasjer przydzielił
-    int discount_applied;   // np. 25 albo 0
+    int discount_applied;   // np. 25 albo 0 (nie dotyczy dzieci <8 wtedy patrzymy z discount_tickets_nbr)
     uint32_t pass_id;       // ID karnetu do rejestracji na bramkach
 
 } ticket_msg_t;
 
 #define TICKET_MSGSZ (sizeof(ticket_msg_t) - sizeof(long))
 
+//ipc
 int  ipc_create_queue(void);
 void ipc_set_env_qid(int qid);
 int  ipc_get_qid_from_env(void);
@@ -61,3 +63,10 @@ int  ipc_destroy_queue(int qid);
 int ipc_send(int qid, const ticket_msg_t *m);
 int ipc_recv(int qid, long mtype, ticket_msg_t *m, int flags);
 
+
+
+// data_randomization
+pass_type_t pick_pass(pass_type_t req);
+pass_type_t rand_pass_or_zero(void);
+int rand_vip_1pct(void);
+int rand_age(void);

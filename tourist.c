@@ -3,34 +3,45 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "simulation.h"
 #include "ipc.h"
-
-static int rand_age(void) {
-    return (rand() % 76) + 5;
-}
-
-static int rand_vip_1pct(void) {
-    return (rand() % 100) == 0;
-}
-
-static pass_type_t rand_pass_or_zero(void) {
-    if ((rand() % 4) == 0) return 0;
-    return (pass_type_t)((rand() % 5) + 1);
-}
 
 int main(void) {
     srand(time(NULL) ^ getpid());
 
     int qid = ipc_get_qid_from_env();
 
+    int children_cnt = 0;
     int age = rand_age();
-    int is_vip = rand_vip_1pct();
-    int is_biker = (rand() % 2);
 
     ticket_msg_t req;
     memset(&req, 0, sizeof(req));
+
+    req.tickets_nbr = 1;
+    req.discount_tickets_nbr = 0;
+
+    while (age < 8 && children_cnt < 2) {
+        children_cnt++;
+        req.tickets_nbr++;
+        req.discount_tickets_nbr++;
+
+        printf(CLR_RED_B"    TURYSTA %d: wylosowałem dziecko #%d (age=%d) -> tworzę wątek dziecka\n" RESET,
+               getpid(), children_cnt, age);
+
+        spawn_child_thread();
+
+        age = rand_age();
+    }
+
+    while (age < 8) {
+        age = rand_age();
+    }
+
+    int is_vip = rand_vip_1pct();
+    int is_biker = (rand() % 2);
+
     req.mtype = is_vip ? MT_VIP_OR_CTRL : MT_NORMAL;
     req.kind  = MSG_TICKET_REQ;
     req.pid   = getpid();
@@ -38,10 +49,10 @@ int main(void) {
     req.is_vip = is_vip;
     req.is_biker = is_biker;
     req.requested_pass = rand_pass_or_zero();
-    req.tickets_nbr = 1;
 
-    printf(CLR_GREEN"    TURYSTA %d: idę do kasy (qid=%d) VIP=%d age=%d biker=%d\n" RESET,
-           getpid(), qid, is_vip, age, is_biker);
+    printf(CLR_GREEN"    TURYSTA %d: idę do kasy (qid=%d) VIP=%d age=%d biker=%d children=%d tickets=%d disc_tickets=%d\n" RESET,
+           getpid(), qid, is_vip, age, is_biker, children_cnt, req.tickets_nbr, req.discount_tickets_nbr);
+
 
     if (ipc_send(qid, &req) < 0) return 1;
 
