@@ -7,52 +7,30 @@
 
 #include "simulation.h"
 #include "ipc.h"
+#include "tourist_utils.h"
 
 int main(void) {
     srand(time(NULL) ^ getpid());
 
     int qid = ipc_get_qid_from_env();
+    int platform_qid = tourist_get_env_int(IPC_ENV_PLATFORM_QID);
+    int sem_gate4 = ipc_get_sem_from_env(IPC_ENV_SEM_GATE4);
+    int sem_gate3 = ipc_get_sem_from_env(IPC_ENV_SEM_GATE3);
+    int sem_inside = ipc_get_sem_from_env(IPC_ENV_SEM_INSIDE);
 
-    int children_cnt = 0;
-    int age = rand_age();
-
-    ticket_msg_t req;
-    memset(&req, 0, sizeof(req));
-
-    req.tickets_nbr = 1;
-    req.discount_tickets_nbr = 0;
-
-    while (age < 8 && children_cnt < 2) {
-        children_cnt++;
-        req.tickets_nbr++;
-        req.discount_tickets_nbr++;
-
-        printf(CLR_RED_B"    TURYSTA %d: wylosowałem dziecko #%d (age=%d) -> tworzę wątek dziecka\n" RESET,
-               getpid(), children_cnt, age);
-
-        spawn_child_thread();
-
-        age = rand_age();
-    }
-
-    while (age < 8) {
-        age = rand_age();
-    }
+    int tickets_nbr = 1;
+    int discount_tickets_nbr = 0;
+    int age = tourist_handle_children(&tickets_nbr, &discount_tickets_nbr);
+    int children_cnt = tickets_nbr - 1;
 
     int is_vip = rand_vip_1pct();
     int is_biker = (rand() % 2);
 
-    req.mtype = is_vip ? MT_VIP_OR_CTRL : MT_NORMAL;
-    req.kind  = MSG_TICKET_REQ;
-    req.pid   = getpid();
-    req.age   = age;
-    req.is_vip = is_vip;
-    req.is_biker = is_biker;
-    req.requested_pass = rand_pass_or_zero();
+    ticket_msg_t req;
+    tourist_fill_ticket_request(&req, age, is_vip, is_biker, tickets_nbr, discount_tickets_nbr);
 
-    printf(CLR_GREEN"    TURYSTA %d: idę do kasy (qid=%d) VIP=%d age=%d biker=%d children=%d tickets=%d disc_tickets=%d\n" RESET,
+    printf(CLR_GREEN"    TURYSTA %d: ide do kasy (qid=%d) VIP=%d age=%d biker=%d children=%d tickets=%d disc_tickets=%d\n" RESET,
            getpid(), qid, is_vip, age, is_biker, children_cnt, req.tickets_nbr, req.discount_tickets_nbr);
-
 
     if (ipc_send(qid, &req) < 0) return 1;
 
@@ -61,7 +39,10 @@ int main(void) {
     if (ipc_recv(qid, (long)getpid(), &res, 0) < 0) return 1;
 
     if (res.status == ST_OK) {
-        printf(CLR_GREEN"    TURYSTA %d: dostałem pass_id=%u pass_type=%d discount=%d%%\n" RESET,
+        if (tourist_do_lower_gate(res.pass_id, sem_inside, sem_gate4) < 0) return 1;
+        int plat = tourist_do_platform_stage(res.pass_id, is_biker, platform_qid, sem_inside, sem_gate3);
+        if (plat != 0) return (plat < 0) ? 1 : 0;
+        printf(CLR_GREEN"    TURYSTA %d: dostalem pass_id=%u pass_type=%d discount=%d%%\n" RESET,
                getpid(), res.pass_id, res.assigned_pass, res.discount_applied);
     } else {
         printf(CLR_RED_B"    TURYSTA %d: odmowa status=%d\n" RESET, getpid(), res.status);

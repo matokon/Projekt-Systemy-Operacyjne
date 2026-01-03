@@ -4,6 +4,10 @@
 #include <stdlib.h>
 
 #define IPC_ENV_QID "CABLECAR_QID"
+#define IPC_ENV_PLATFORM_QID "CABLECAR_PLATFORM_QID"
+#define IPC_ENV_SEM_GATE4 "CABLECAR_SEM_GATE4"
+#define IPC_ENV_SEM_GATE3 "CABLECAR_SEM_GATE3"
+#define IPC_ENV_SEM_INSIDE "CABLECAR_SEM_INSIDE"
 
 // priorytety w kolejce
 #define MT_VIP_OR_CTRL 1
@@ -55,14 +59,41 @@ typedef struct {
 
 #define TICKET_MSGSZ (sizeof(ticket_msg_t) - sizeof(long))
 
+typedef enum {
+    PLAT_REQ = 1,
+    PLAT_RES = 2,
+    PLAT_SHUTDOWN = 3
+} platform_kind_t;
+
+typedef struct {
+    long mtype;            // REQUEST: 1, RESPONSE: pid klienta
+    platform_kind_t kind;
+    pid_t pid;
+    int is_biker;
+    uint32_t pass_id;
+} platform_msg_t;
+
+#define PLATFORM_MSGSZ (sizeof(platform_msg_t) - sizeof(long))
+
 //ipc
 int  ipc_create_queue(void);
+int  ipc_create_queue_with_id(char proj_id);
 void ipc_set_env_qid(int qid);
 int  ipc_get_qid_from_env(void);
 int  ipc_destroy_queue(int qid);
 int ipc_send(int qid, const ticket_msg_t *m);
 int ipc_recv(int qid, long mtype, ticket_msg_t *m, int flags);
 
+int ipc_send_platform(int qid, const platform_msg_t *m);
+int ipc_recv_platform(int qid, long mtype, platform_msg_t *m, int flags);
+
+//semaphores
+int  ipc_create_sem(char proj_id, int init_val);
+void ipc_set_env_sem(const char *env_name, int semid);
+int  ipc_get_sem_from_env(const char *env_name);
+int  ipc_destroy_sem(int semid);
+int  ipc_sem_wait(int semid);
+int  ipc_sem_post(int semid);
 
 
 // data_randomization

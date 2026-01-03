@@ -30,10 +30,13 @@ cashier: cashier.o ipc.o data_randomization.o
 cashier.o: cashier.c simulation.h ipc.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-employee1: employee1.o
+employee1: employee1.o ipc.o platform_queue.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-employee1.o: employee1.c simulation.h
+employee1.o: employee1.c simulation.h ipc.h platform_queue.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+platform_queue.o: platform_queue.c platform_queue.h ipc.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 employee2: employee2.o
@@ -42,10 +45,13 @@ employee2: employee2.o
 employee2.o: employee2.c simulation.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-tourist: tourist.o ipc.o data_randomization.o process_utils.o
+tourist: tourist.o tourist_utils.o ipc.o data_randomization.o process_utils.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-tourist.o: tourist.c simulation.h ipc.h
+tourist.o: tourist.c simulation.h ipc.h tourist_utils.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+tourist_utils.o: tourist_utils.c tourist_utils.h simulation.h ipc.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
