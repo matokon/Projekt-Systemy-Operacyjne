@@ -14,27 +14,8 @@ union semun {
     unsigned short *array;
 };
 
-static key_t make_key(void) {
-    key_t k = ftok(".", 'L');
-    if (k == (key_t)-1) {
-        perror("ftok");
-        exit(1);
-    }
-    return k;
-}
-
-static key_t make_key_with_id(char proj_id) {
-    key_t k = ftok(".", proj_id);
-    if (k == (key_t)-1) {
-        perror("ftok");
-        exit(1);
-    }
-    return k;
-}
-
 int ipc_create_queue(void) {
-    key_t k = make_key();
-    int qid = msgget(k, IPC_CREAT | 0666);
+    int qid = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
     if (qid == -1) {
         perror("msgget");
         exit(1);
@@ -43,8 +24,8 @@ int ipc_create_queue(void) {
 }
 
 int ipc_create_queue_with_id(char proj_id) {
-    key_t k = make_key_with_id(proj_id);
-    int qid = msgget(k, IPC_CREAT | 0666);
+    (void)proj_id;
+    int qid = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
     if (qid == -1) {
         perror("msgget");
         exit(1);
@@ -79,8 +60,8 @@ int ipc_destroy_queue(int qid) {
 }
 
 int ipc_create_sem(char proj_id, int init_val) {
-    key_t k = make_key_with_id(proj_id);
-    int semid = semget(k, 1, IPC_CREAT | 0666);
+    (void)proj_id;
+    int semid = semget(IPC_PRIVATE, 1, IPC_CREAT | 0666);
     if (semid == -1) {
         perror("semget");
         exit(1);

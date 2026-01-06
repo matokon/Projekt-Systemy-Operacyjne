@@ -1,5 +1,4 @@
 #include <string.h>
-#include <stdio.h>
 #include "platform_queue.h"
 #include "ipc.h"
 
@@ -112,7 +111,6 @@ void platform_try_form_groups(int qid, pid_t *bikers, int *bikers_n,
             pid_t p2 = bikers[1];
             memmove(&bikers[0], &bikers[2], (*bikers_n - 2) * sizeof(pid_t));
             *bikers_n -= 2;
-            printf("PLATFORM GROUP: biker=%d biker=%d\n", (int)p1, (int)p2);
             platform_send_res(qid, p1);
             platform_send_res(qid, p2);
             continue;
@@ -124,14 +122,6 @@ void platform_try_form_groups(int qid, pid_t *bikers, int *bikers_n,
                 pid_t biker_pid = bikers[0];
                 memmove(&bikers[0], &bikers[1], (*bikers_n - 1) * sizeof(pid_t));
                 *bikers_n -= 1;
-                printf("PLATFORM GROUP: biker=%d peds=", (int)biker_pid);
-                for (int i = 0; i < idxs_n; i++) {
-                    printf("%d(size=%d)%s",
-                           (int)peds[idxs[i]].pid,
-                           peds[idxs[i]].size,
-                           (i + 1 == idxs_n) ? "" : ",");
-                }
-                printf("\n");
                 platform_send_res(qid, biker_pid);
                 for (int i = 0; i < idxs_n; i++) {
                     platform_send_res(qid, peds[idxs[i]].pid);
@@ -146,14 +136,6 @@ void platform_try_form_groups(int qid, pid_t *bikers, int *bikers_n,
             int idxs[4];
             int idxs_n = 0;
             if (pick_peds_sum(peds, *peds_n, 4, idxs, &idxs_n)) {
-                printf("PLATFORM GROUP: peds=");
-                for (int i = 0; i < idxs_n; i++) {
-                    printf("%d(size=%d)%s",
-                           (int)peds[idxs[i]].pid,
-                           peds[idxs[i]].size,
-                           (i + 1 == idxs_n) ? "" : ",");
-                }
-                printf("\n");
                 for (int i = 0; i < idxs_n; i++) {
                     platform_send_res(qid, peds[idxs[i]].pid);
                 }
