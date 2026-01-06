@@ -18,7 +18,7 @@ int main() {
 
     enum { MAX_QUEUE = 1024 };
     pid_t bikers[MAX_QUEUE];
-    pid_t peds[MAX_QUEUE];
+    ped_group_t peds[MAX_QUEUE];
     int bikers_n = 0;
     int peds_n = 0;
     int closing = 0;
@@ -47,7 +47,8 @@ int main() {
             continue;
         }
 
-        platform_enqueue_request(req.is_biker, req.pid, bikers, &bikers_n, peds, &peds_n, MAX_QUEUE);
+        platform_enqueue_request(req.is_biker, req.pid, req.group_size,
+                                 bikers, &bikers_n, peds, &peds_n, MAX_QUEUE);
         platform_try_form_groups(platform_qid, bikers, &bikers_n, peds, &peds_n);
     }
 

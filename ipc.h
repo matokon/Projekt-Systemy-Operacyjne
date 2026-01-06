@@ -70,6 +70,7 @@ typedef struct {
     platform_kind_t kind;
     pid_t pid;
     int is_biker;
+    int group_size;        // liczba miejsc zajmowanych przez osobe + dzieci
     uint32_t pass_id;
 } platform_msg_t;
 

@@ -25,6 +25,10 @@ int main(void) {
 
     int is_vip = rand_vip_1pct();
     int is_biker = (rand() % 2);
+    if (children_cnt > 0) {
+        is_biker = 0;
+    }
+    int group_size = tickets_nbr;
 
     ticket_msg_t req;
     tourist_fill_ticket_request(&req, age, is_vip, is_biker, tickets_nbr, discount_tickets_nbr);
@@ -40,7 +44,8 @@ int main(void) {
 
     if (res.status == ST_OK) {
         if (tourist_do_lower_gate(res.pass_id, sem_inside, sem_gate4) < 0) return 1;
-        int plat = tourist_do_platform_stage(res.pass_id, is_biker, platform_qid, sem_inside, sem_gate3);
+        int plat = tourist_do_platform_stage(res.pass_id, is_biker, group_size,
+                                             platform_qid, sem_inside, sem_gate3);
         if (plat != 0) return (plat < 0) ? 1 : 0;
         printf(CLR_GREEN"    TURYSTA %d: dostalem pass_id=%u pass_type=%d discount=%d%%\n" RESET,
                getpid(), res.pass_id, res.assigned_pass, res.discount_applied);

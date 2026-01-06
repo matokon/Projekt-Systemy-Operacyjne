@@ -80,7 +80,7 @@ int tourist_do_lower_gate(uint32_t pass_id, int sem_inside, int sem_gate4) {
     return 0;
 }
 
-int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int platform_qid,
+int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int group_size, int platform_qid,
                               int sem_inside, int sem_gate3) {
     platform_msg_t preq;
     memset(&preq, 0, sizeof(preq));
@@ -88,6 +88,7 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int platform_qid,
     preq.kind = PLAT_REQ;
     preq.pid = getpid();
     preq.is_biker = is_biker;
+    preq.group_size = group_size;
     preq.pass_id = pass_id;
 
     if (ipc_send_platform(platform_qid, &preq) < 0) return -1;
