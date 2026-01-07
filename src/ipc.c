@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include "cableway.h"
 #include "ipc.h"
 
 union semun {

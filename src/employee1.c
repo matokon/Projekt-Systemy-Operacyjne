@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "simulation.h"
+#include "cableway.h"
 #include "ipc.h"
 #include "platform_queue.h"
 
@@ -30,6 +31,14 @@ int main() {
 
         if (req.kind == PLAT_SHUTDOWN) {
             if (closing) {
+                if (req.pid > 0) {
+                    platform_msg_t ack;
+                    memset(&ack, 0, sizeof(ack));
+                    ack.mtype = (long)req.pid;
+                    ack.kind = PLAT_SHUTDOWN_ACK;
+                    ack.pid = getpid();
+                    ipc_send_platform(platform_qid, &ack);
+                }
                 printf(CLR_CYAN"    Pracownik1 %d: shutdown final" RESET "\n", getpid());
                 break;
             }

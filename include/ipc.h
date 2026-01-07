@@ -3,12 +3,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define IPC_ENV_QID "CABLECAR_QID"
-#define IPC_ENV_PLATFORM_QID "CABLECAR_PLATFORM_QID"
-#define IPC_ENV_SEM_GATE4 "CABLECAR_SEM_GATE4"
-#define IPC_ENV_SEM_GATE3 "CABLECAR_SEM_GATE3"
-#define IPC_ENV_SEM_INSIDE "CABLECAR_SEM_INSIDE"
-
 // priorytety w kolejce
 #define MT_VIP_OR_CTRL 1
 #define MT_NORMAL      2
@@ -16,7 +10,8 @@
 typedef enum {
     MSG_TICKET_REQ = 1,
     MSG_TICKET_RES = 2,
-    MSG_SHUTDOWN   = 3
+    MSG_SHUTDOWN   = 3,
+    MSG_SHUTDOWN_ACK = 4
 } msg_kind_t;
 
 typedef enum {
@@ -62,7 +57,8 @@ typedef struct {
 typedef enum {
     PLAT_REQ = 1,
     PLAT_RES = 2,
-    PLAT_SHUTDOWN = 3
+    PLAT_SHUTDOWN = 3,
+    PLAT_SHUTDOWN_ACK = 4
 } platform_kind_t;
 
 typedef struct {

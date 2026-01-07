@@ -4,6 +4,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include "simulation.h"
+#include "cableway.h"
 #include "ipc.h"
 #define duration_sec 5
 #define INSIDE_LIMIT 10
@@ -48,7 +49,7 @@ int main() {
     memset(&pshut, 0, sizeof(pshut));
     pshut.mtype = 1;
     pshut.kind = PLAT_SHUTDOWN;
-    pshut.pid = 0;
+    pshut.pid = getpid();
     ipc_send_platform(platform_qid, &pshut);
     wait_for_pids(tourists, tourist_count);
     free(tourists);
@@ -59,10 +60,18 @@ int main() {
     memset(&shut, 0, sizeof(shut));
     shut.mtype = MT_VIP_OR_CTRL;
     shut.kind = MSG_SHUTDOWN;
-    shut.pid   = 0;
+    shut.pid   = getpid();
     ipc_send(qid, &shut);
 
     ipc_send_platform(platform_qid, &pshut);
+
+    ticket_msg_t shut_ack;
+    memset(&shut_ack, 0, sizeof(shut_ack));
+    ipc_recv(qid, (long)getpid(), &shut_ack, 0);
+
+    platform_msg_t pshut_ack;
+    memset(&pshut_ack, 0, sizeof(pshut_ack));
+    ipc_recv_platform(platform_qid, (long)getpid(), &pshut_ack, 0);
 
 
     int status;
