@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra -O2 -Iinclude
 
 OBJS = main.o process_utils.o ipc.o cashier.o data_randomization.o \
        employee1.o platform_queue.o employee2.o tourist.o tourist_utils.o \
-       cablecar_utils.o
+       cablecar_utils.o main_utils.o
 DEPS = $(OBJS:.o=.d)
 
 .PHONY: all clean
@@ -14,7 +14,7 @@ all: projekt cashier employee1 employee2 tourist
 projekt: main.o process_utils.o ipc.o cablecar_utils.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-main.o: src/main.c include/simulation.h include/ipc.h include/cablecar.h
+main.o: src/main.c include/simulation.h include/ipc.h include/cablecar.h include/main_utils.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 data_randomization.o: src/data_randomization.c include/simulation.h include/ipc.h
@@ -22,6 +22,9 @@ data_randomization.o: src/data_randomization.c include/simulation.h include/ipc.
 
 # --------- utils ---------
 process_utils.o: src/utils/process_utils.c include/simulation.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+main_utils.o: src/utils/main_utils.c include/main_utils.h include/cablecar.h include/ipc.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # --------- ipc ---------

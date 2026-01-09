@@ -7,17 +7,9 @@
 #include "simulation.h"
 #include "cablecar.h"
 #include "ipc.h"
+#include "main_utils.h"
 #define duration_sec 5
 #define INSIDE_LIMIT 10
-
-static void set_env_int(const char *name, int value) {
-    char buf[32];
-    snprintf(buf, sizeof(buf), "%d", value);
-    if (setenv(name, buf, 1) != 0) {
-        perror("setenv");
-        exit(1);
-    }
-}
 
 int main() {
 
@@ -35,11 +27,7 @@ int main() {
     fprintf(stderr, "[MAIN] semids gate4=%d gate3=%d inside=%d shm=%d chairs=%d\n",
             sem_gate4, sem_gate3, sem_inside, sem_shm, sem_chairs);
     
-    ipc_set_env_sem(IPC_ENV_SEM_GATE4, sem_gate4);
-    ipc_set_env_sem(IPC_ENV_SEM_GATE3, sem_gate3);
-    ipc_set_env_sem(IPC_ENV_SEM_INSIDE, sem_inside);
-    ipc_set_env_sem(IPC_ENV_SEM_CHAIRS, sem_chairs);
-    ipc_set_env_sem(IPC_ENV_SEM_SHM, sem_shm);
+    set_env_sems(sem_gate4, sem_gate3, sem_inside, sem_chairs, sem_shm);
 
     int shmid = ipc_create_shm(sizeof(cablecar_t));
     cablecar_t *cablecar = (cablecar_t*)ipc_attach_shm(shmid);
@@ -93,15 +81,8 @@ int main() {
     waitpid(emp1_pid, &status, 0);
     waitpid(emp2_pid, &status, 0);
 
-    ipc_destroy_queue(qid);
-    ipc_destroy_queue(platform_qid);
-    ipc_destroy_sem(sem_gate4);
-    ipc_destroy_sem(sem_gate3);
-    ipc_destroy_sem(sem_inside);
-    ipc_destroy_sem(sem_chairs);
-    ipc_detach_shm(cablecar);
-    ipc_destroy_shm(shmid);
-    ipc_destroy_sem(sem_shm);
+    cleanup_ipc(qid, platform_qid, sem_gate4, sem_gate3, sem_inside,
+                sem_chairs, sem_shm, cablecar, shmid);
 
     printf(CLR_PINK"[MAIN %d] Koniec programu" RESET "\n", getpid());
     return 0;
