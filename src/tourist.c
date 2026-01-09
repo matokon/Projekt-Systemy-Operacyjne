@@ -6,7 +6,7 @@
 #include <pthread.h>
 
 #include "simulation.h"
-#include "cableway.h"
+#include "cablecar.h"
 #include "ipc.h"
 #include "tourist_utils.h"
 

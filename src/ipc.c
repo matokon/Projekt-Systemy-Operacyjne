@@ -1,12 +1,13 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/sem.h>
+#include <sys/shm.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include "cableway.h"
+#include "cablecar.h"
 #include "ipc.h"
 
 union semun {
@@ -164,4 +165,38 @@ int ipc_recv_platform(int qid, long mtype, platform_msg_t *m, int flags) {
         perror("msgrcv(platform)");
         return -1;
     }
+}
+
+int ipc_create_shm(size_t size) {
+    int shmid = shmget(IPC_PRIVATE, size, IPC_CREAT | 0666);
+    if (shmid == -1) {
+        perror("shmget");
+        exit(1);
+    }
+    return shmid;
+}
+
+void* ipc_attach_shm(int shmid) {
+    void *addr = shmat(shmid, NULL, 0);
+    if (addr == (void*)-1) {
+        perror("shmat");
+        exit(1);
+    }
+    return addr;
+}
+
+int ipc_detach_shm(void *addr) {
+    if (shmdt(addr) == -1) {
+        perror("shmdt");
+        return -1;
+    }
+    return 0;
+}
+
+int ipc_destroy_shm(int shmid) {
+    if (shmctl(shmid, IPC_RMID, NULL) == -1) {
+        perror("shmctl(IPC_RMID)");
+        return -1;
+    }
+    return 0;
 }

@@ -6,6 +6,10 @@
 #define IPC_ENV_SEM_GATE4 "CABLECAR_SEM_GATE4"
 #define IPC_ENV_SEM_GATE3 "CABLECAR_SEM_GATE3"
 #define IPC_ENV_SEM_INSIDE "CABLECAR_SEM_INSIDE"
+#define IPC_ENV_SHM_CABLECAR "CABLECAR_SHM_CABLECAR"
+#define IPC_ENV_SEM_SHM "CABLECAR_SEM_SHM"
+#define IPC_ENV_SEM_CHAIRS "CABLECAR_SEM_CHAIRS"
+
 
 
 typedef enum {
@@ -22,6 +26,8 @@ typedef struct {
 typedef struct {
     seat_t seats[72];
     int head;
+    int tail;
     int occupied;
-} cableway_t;
+} cablecar_t;
 
+void cablecar_init(cablecar_t *cablecar);

@@ -84,6 +84,12 @@ int ipc_recv(int qid, long mtype, ticket_msg_t *m, int flags);
 int ipc_send_platform(int qid, const platform_msg_t *m);
 int ipc_recv_platform(int qid, long mtype, platform_msg_t *m, int flags);
 
+//shared memory
+int  ipc_create_shm(size_t size);
+void* ipc_attach_shm(int shmid);
+int  ipc_detach_shm(void *addr);
+int  ipc_destroy_shm(int shmid);
+
 //semaphores
 int  ipc_create_sem(char proj_id, int init_val);
 void ipc_set_env_sem(const char *env_name, int semid);

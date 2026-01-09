@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <time.h>
 #include "simulation.h"
-#include "cableway.h"
+#include "cablecar.h"
 #include "ipc.h"
 #define duration_sec 5
 #define INSIDE_LIMIT 10
@@ -29,9 +30,21 @@ int main() {
     int sem_gate4 = ipc_create_sem('G', 4);
     int sem_gate3 = ipc_create_sem('T', 3);
     int sem_inside = ipc_create_sem('N', INSIDE_LIMIT);
+    int sem_shm = ipc_create_sem('M', 1);
+    int sem_chairs = ipc_create_sem('C', 36);
+    fprintf(stderr, "[MAIN] semids gate4=%d gate3=%d inside=%d shm=%d chairs=%d\n",
+            sem_gate4, sem_gate3, sem_inside, sem_shm, sem_chairs);
+    
     ipc_set_env_sem(IPC_ENV_SEM_GATE4, sem_gate4);
     ipc_set_env_sem(IPC_ENV_SEM_GATE3, sem_gate3);
     ipc_set_env_sem(IPC_ENV_SEM_INSIDE, sem_inside);
+    ipc_set_env_sem(IPC_ENV_SEM_CHAIRS, sem_chairs);
+    ipc_set_env_sem(IPC_ENV_SEM_SHM, sem_shm);
+
+    int shmid = ipc_create_shm(sizeof(cablecar_t));
+    cablecar_t *cablecar = (cablecar_t*)ipc_attach_shm(shmid);
+    cablecar_init(cablecar);
+    set_env_int(IPC_ENV_SHM_CABLECAR, shmid);
 
     pid_t cashier_pid = start_process("./cashier",  "cashier",  "cashier fork");
     pid_t emp1_pid    = start_process("./employee1","employee1","employee1 fork");
@@ -73,6 +86,7 @@ int main() {
     memset(&pshut_ack, 0, sizeof(pshut_ack));
     ipc_recv_platform(platform_qid, (long)getpid(), &pshut_ack, 0);
 
+    kill(emp2_pid, SIGTERM);
 
     int status;
     waitpid(cashier_pid, &status, 0);
@@ -84,6 +98,10 @@ int main() {
     ipc_destroy_sem(sem_gate4);
     ipc_destroy_sem(sem_gate3);
     ipc_destroy_sem(sem_inside);
+    ipc_destroy_sem(sem_chairs);
+    ipc_detach_shm(cablecar);
+    ipc_destroy_shm(shmid);
+    ipc_destroy_sem(sem_shm);
 
     printf(CLR_PINK"[MAIN %d] Koniec programu" RESET "\n", getpid());
     return 0;

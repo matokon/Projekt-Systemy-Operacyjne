@@ -3,19 +3,33 @@
 #include <string.h>
 #include <stdlib.h>
 #include "simulation.h"
-#include "cableway.h"
+#include "cablecar.h"
 #include "ipc.h"
 #include "platform_queue.h"
 
 int main() {
     printf(CLR_CYAN"    Pracownik1 Start: %d" RESET "\n", getpid());
 
-    const char *s = getenv(IPC_ENV_PLATFORM_QID);
-    if (!s || !*s) {
+    const char *s1 = getenv(IPC_ENV_PLATFORM_QID);
+    if (!s1 || !*s1) {
         fprintf(stderr, "Brak %s w env\n", IPC_ENV_PLATFORM_QID);
         return 1;
     }
-    int platform_qid = atoi(s);
+    int platform_qid = atoi(s1);
+
+    const char *s2 = getenv(IPC_ENV_SHM_CABLECAR);
+    if (!s2 || !*s2) { 
+        fprintf(stderr, "Brak %s w env\n", IPC_ENV_SHM_CABLECAR);
+        return 1;
+     }
+    int shmid = atoi(s2);
+    cablecar_t *cablecar = (cablecar_t*)ipc_attach_shm(shmid);
+    int sem_shm = ipc_get_sem_from_env(IPC_ENV_SEM_SHM);
+    int sem_chairs = ipc_get_sem_from_env(IPC_ENV_SEM_CHAIRS);
+    (void)cablecar;
+    (void)sem_shm;
+    (void)sem_chairs;
+
 
     enum { MAX_QUEUE = 1024 };
     pid_t bikers[MAX_QUEUE];
@@ -58,7 +72,8 @@ int main() {
 
         platform_enqueue_request(req.is_biker, req.pid, req.group_size,
                                  bikers, &bikers_n, peds, &peds_n, MAX_QUEUE);
-        platform_try_form_groups(platform_qid, bikers, &bikers_n, peds, &peds_n);
+        platform_try_form_groups(platform_qid, cablecar, sem_shm, sem_chairs,
+                                 bikers, &bikers_n, peds, &peds_n);
     }
 
     printf(CLR_CYAN"    Pracownik1 Koniec: %d" RESET "\n", getpid());
