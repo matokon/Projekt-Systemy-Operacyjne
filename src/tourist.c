@@ -44,7 +44,8 @@ int main(void) {
     if (ipc_recv(qid, (long)getpid(), &res, 0) < 0) return 1;
 
     if (res.status == ST_OK) {
-        if (tourist_do_lower_gate(res.pass_id, sem_inside, sem_gate4) < 0) return 1;
+        int gate = tourist_do_lower_gate(res.pass_id, sem_inside, sem_gate4);
+        if (gate != 0) return (gate < 0) ? 1 : 0;
         int plat = tourist_do_platform_stage(res.pass_id, is_biker, group_size,
                                              platform_qid, sem_inside, sem_gate3);
         if (plat != 0) return (plat < 0) ? 1 : 0;

@@ -5,6 +5,7 @@
 #include "simulation.h"
 #include "cablecar.h"
 #include "ipc.h"
+#include "sim_time.h"
 #include "platform_queue.h"
 
 int main() {
@@ -37,6 +38,7 @@ int main() {
     int bikers_n = 0;
     int peds_n = 0;
     int closing = 0;
+    int gate_closed = 0;
 
     for (;;) {
         platform_msg_t req;
@@ -66,6 +68,15 @@ int main() {
         }
 
         if (closing) {
+            platform_send_shutdown(platform_qid, req.pid);
+            continue;
+        }
+
+        if (sim_is_closed()) {
+            if (!gate_closed) {
+                printf(CLR_CYAN"    Pracownik1 %d: bramki peronu zamkniete (po Tk)\n" RESET, getpid());
+                gate_closed = 1;
+            }
             platform_send_shutdown(platform_qid, req.pid);
             continue;
         }

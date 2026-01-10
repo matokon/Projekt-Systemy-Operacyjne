@@ -8,10 +8,42 @@
 #include "cablecar.h"
 #include "ipc.h"
 #include "main_utils.h"
-#define duration_sec 5
 #define INSIDE_LIMIT 10
 
-int main() {
+static void wait_for_cablecar_empty(cablecar_t *cablecar, int sem_shm) {
+    for (;;) {
+        int occ = 0;
+        ipc_sem_wait(sem_shm);
+        occ = cablecar->occupied;
+        ipc_sem_post(sem_shm);
+        if (occ == 0) break;
+        sleep(1);
+    }
+}
+
+static int parse_arg_int(const char *s, const char *name) {
+    char *end = NULL;
+    long v = strtol(s, &end, 10);
+    if (!s || *s == '\0' || (end && *end != '\0') || v < 0 || v > 86400) {
+        fprintf(stderr, "Niepoprawny %s: %s\n", name, s ? s : "(null)");
+        exit(1);
+    }
+    return (int)v;
+}
+
+int main(int argc, char **argv) {
+
+    if (argc < 3) {
+        fprintf(stderr, "Uzycie: %s <Tp> <Tk>\n", argv[0]);
+        return 1;
+    }
+    int tp = parse_arg_int(argv[1], "Tp");
+    int tk = parse_arg_int(argv[2], "Tk");
+    if (tk <= tp) {
+        fprintf(stderr, "Niepoprawny zakres: Tp=%d Tk=%d\n", tp, tk);
+        return 1;
+    }
+    int duration_sec = tk - tp;
 
     printf(CLR_PINK"[MAIN] %d Start programu" RESET "\n", getpid());
 
@@ -33,6 +65,9 @@ int main() {
     cablecar_t *cablecar = (cablecar_t*)ipc_attach_shm(shmid);
     cablecar_init(cablecar);
     set_env_int(IPC_ENV_SHM_CABLECAR, shmid);
+    set_env_int(IPC_ENV_TP, tp);
+    set_env_int(IPC_ENV_TK, tk);
+    set_env_int(IPC_ENV_START, (int)time(NULL));
 
     pid_t cashier_pid = start_process("./cashier",  "cashier",  "cashier fork");
     pid_t emp1_pid    = start_process("./employee1","employee1","employee1 fork");
@@ -40,8 +75,8 @@ int main() {
 
     srand(time(NULL) ^ getpid());
 
-    printf(CLR_PINK"[MAIN %d] Zaczynam generować turystów przez %d s\n"RESET,
-           getpid(), duration_sec);
+    printf(CLR_PINK"[MAIN %d] Zaczynam generowac turystow przez %d s (Tp=%d Tk=%d)\n"RESET,
+           getpid(), duration_sec, tp, tk);
     
     int tourist_count = 0;
     pid_t *tourists = spawn_processes_for_seconds_collect("./tourist","tourist", duration_sec, &tourist_count);
@@ -56,6 +91,9 @@ int main() {
     free(tourists);
 
     printf(CLR_PINK"[MAIN %d] Wygenerowałem %d turystów" RESET "\n", getpid(), tourist_count);
+
+    wait_for_cablecar_empty(cablecar, sem_shm);
+    sleep(3);
 
     ticket_msg_t shut;
     memset(&shut, 0, sizeof(shut));

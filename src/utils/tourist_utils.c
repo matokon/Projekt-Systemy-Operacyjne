@@ -6,6 +6,7 @@
 #include "tourist_utils.h"
 #include "simulation.h"
 #include "ipc.h"
+#include "sim_time.h"
 
 static void log_lower_gate(uint32_t pass_id) {
     FILE *f = fopen("lower_gate.log", "a");
@@ -71,6 +72,10 @@ void tourist_fill_ticket_request(ticket_msg_t *req, int age, int is_vip, int is_
 }
 
 int tourist_do_lower_gate(uint32_t pass_id, int sem_inside, int sem_gate4) {
+    if (sim_is_closed()) {
+        printf(CLR_RED_B"    TURYSTA %d: bramki zamkniete (po Tk)\n" RESET, getpid());
+        return 1;
+    }
     if (ipc_sem_wait(sem_inside) < 0) return -1;
     if (ipc_sem_wait(sem_gate4) < 0) return -1;
     log_lower_gate(pass_id);

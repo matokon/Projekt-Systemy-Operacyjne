@@ -76,3 +76,20 @@ This project uses classic UNIX IPC primitives:
   - platform occupants must still ride up.
   - lift shuts down 3 seconds after platform drains.
 
+## How to Run
+
+Build:
+```
+make
+```
+
+Run (provide Tp and Tk as seconds for simulation window):
+```
+./projekt <Tp> <Tk>
+```
+
+Example:
+```
+./projekt 0 10
+```
+

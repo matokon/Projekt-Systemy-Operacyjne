@@ -5,7 +5,9 @@
 #include <sys/msg.h>
 
 #include "simulation.h"
+#include "cablecar.h"
 #include "ipc.h"
+#include "sim_time.h"
 
 typedef enum {
     HNDL_OK = 0,
@@ -62,6 +64,17 @@ int main() {
         handle_result_t hr = handle_prechecks(qid, &msg);
         if (hr == HNDL_BREAK)    break;
         if (hr == HNDL_CONTINUE) continue;
+
+        if (sim_is_closed()) {
+            ticket_msg_t res;
+            memset(&res, 0, sizeof(res));
+            res.mtype  = (long)msg.pid;
+            res.kind   = MSG_TICKET_RES;
+            res.pid    = msg.pid;
+            res.status = ST_REJECTED_CLOSED;
+            ipc_send(qid, &res);
+            continue;
+        }
 
         int discount = ((msg.age < 10 && msg.age > 7) || msg.age > 65) ? 25 : 0;
         
