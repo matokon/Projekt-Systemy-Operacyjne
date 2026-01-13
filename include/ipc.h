@@ -62,7 +62,7 @@ typedef enum {
 } platform_kind_t;
 
 typedef struct {
-    long mtype;            // REQUEST: 1, RESPONSE: pid klienta
+    long mtype;            // REQUEST: MT_VIP_OR_CTRL lub MT_NORMAL, RESPONSE: pid klienta
     platform_kind_t kind;
     pid_t pid;
     int is_biker;

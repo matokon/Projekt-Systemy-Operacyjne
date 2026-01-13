@@ -43,7 +43,7 @@ int main() {
     for (;;) {
         platform_msg_t req;
         memset(&req, 0, sizeof(req));
-        if (ipc_recv_platform(platform_qid, 1, &req, 0) < 0) break;
+        if (ipc_recv_platform(platform_qid, -MT_NORMAL, &req, 0) < 0) break;
 
         if (req.kind == PLAT_SHUTDOWN) {
             if (closing) {

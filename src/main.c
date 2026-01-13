@@ -56,10 +56,11 @@ int main(int argc, char **argv) {
     int sem_inside = ipc_create_sem('N', INSIDE_LIMIT);
     int sem_shm = ipc_create_sem('M', 1);
     int sem_chairs = ipc_create_sem('C', 36);
-    fprintf(stderr, "[MAIN] semids gate4=%d gate3=%d inside=%d shm=%d chairs=%d\n",
-            sem_gate4, sem_gate3, sem_inside, sem_shm, sem_chairs);
+    int sem_exit2 = ipc_create_sem('U', 2);
+    fprintf(stderr, "[MAIN] semids gate4=%d gate3=%d inside=%d shm=%d chairs=%d exit2=%d\n",
+            sem_gate4, sem_gate3, sem_inside, sem_shm, sem_chairs, sem_exit2);
     
-    set_env_sems(sem_gate4, sem_gate3, sem_inside, sem_chairs, sem_shm);
+    set_env_sems(sem_gate4, sem_gate3, sem_inside, sem_chairs, sem_shm, sem_exit2);
 
     int shmid = ipc_create_shm(sizeof(cablecar_t));
     cablecar_t *cablecar = (cablecar_t*)ipc_attach_shm(shmid);
@@ -83,7 +84,7 @@ int main(int argc, char **argv) {
 
     platform_msg_t pshut;
     memset(&pshut, 0, sizeof(pshut));
-    pshut.mtype = 1;
+    pshut.mtype = MT_VIP_OR_CTRL;
     pshut.kind = PLAT_SHUTDOWN;
     pshut.pid = getpid();
     ipc_send_platform(platform_qid, &pshut);
@@ -120,7 +121,7 @@ int main(int argc, char **argv) {
     waitpid(emp2_pid, &status, 0);
 
     cleanup_ipc(qid, platform_qid, sem_gate4, sem_gate3, sem_inside,
-                sem_chairs, sem_shm, cablecar, shmid);
+                sem_chairs, sem_shm, sem_exit2, cablecar, shmid);
 
     printf(CLR_PINK"[MAIN %d] Koniec programu" RESET "\n", getpid());
     return 0;

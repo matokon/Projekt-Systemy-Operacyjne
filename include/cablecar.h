@@ -12,6 +12,11 @@
 #define IPC_ENV_TP "CABLECAR_TP"
 #define IPC_ENV_TK "CABLECAR_TK"
 #define IPC_ENV_START "CABLECAR_START"
+#define IPC_ENV_SEM_EXIT2 "CABLECAR_SEM_EXIT2"
+
+#define TRAIL_T1 3
+#define TRAIL_T2 5
+#define TRAIL_T3 7
 
 
 

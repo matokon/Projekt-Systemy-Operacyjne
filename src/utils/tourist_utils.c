@@ -7,6 +7,7 @@
 #include "simulation.h"
 #include "ipc.h"
 #include "sim_time.h"
+#include "cablecar.h"
 
 static void log_lower_gate(uint32_t pass_id) {
     FILE *f = fopen("lower_gate.log", "a");
@@ -27,6 +28,17 @@ static void log_platform_gate(uint32_t pass_id) {
     }
     time_t now = time(NULL);
     fprintf(f, "%u;%ld;gate=platform\n", pass_id, (long)now);
+    fclose(f);
+}
+
+static void log_upper_gate(void) {
+    FILE *f = fopen("upper_gate.log", "a");
+    if (!f) {
+        perror("fopen upper_gate.log");
+        return;
+    }
+    time_t now = time(NULL);
+    fprintf(f, "%ld;gate=upper\n", (long)now);
     fclose(f);
 }
 
@@ -85,11 +97,11 @@ int tourist_do_lower_gate(uint32_t pass_id, int sem_inside, int sem_gate4) {
     return 0;
 }
 
-int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int group_size, int platform_qid,
+int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int group_size, int platform_qid,
                               int sem_inside, int sem_gate3) {
     platform_msg_t preq;
     memset(&preq, 0, sizeof(preq));
-    preq.mtype = 1;
+    preq.mtype = is_vip ? MT_VIP_OR_CTRL : MT_NORMAL;
     preq.kind = PLAT_REQ;
     preq.pid = getpid();
     preq.is_biker = is_biker;
@@ -112,5 +124,23 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int group_size, in
     log_platform_gate(pass_id);
     ipc_sem_post(sem_gate3);
     ipc_sem_post(sem_inside);
+    return 0;
+}
+
+static int pick_trail_time(void) {
+    int r = rand() % 3;
+    if (r == 0) return TRAIL_T1;
+    if (r == 1) return TRAIL_T2;
+    return TRAIL_T3;
+}
+
+int tourist_do_upper_exit(int is_biker, int sem_exit2) {
+    if (ipc_sem_wait(sem_exit2) < 0) return -1;
+    usleep(200 * 1000);
+    log_upper_gate();
+    ipc_sem_post(sem_exit2);
+    if (is_biker) {
+        sleep(pick_trail_time());
+    }
     return 0;
 }

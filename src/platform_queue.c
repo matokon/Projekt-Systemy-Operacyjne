@@ -96,6 +96,7 @@ void platform_enqueue_request(int is_biker, pid_t pid, int group_size,
         if (*bikers_n < max_queue) bikers[(*bikers_n)++] = pid;
     } else {
         if (group_size < 1) group_size = 1;
+        if (group_size > 3) group_size = 3;
         if (*peds_n < max_queue) {
             peds[*peds_n].pid = pid;
             peds[*peds_n].size = group_size;

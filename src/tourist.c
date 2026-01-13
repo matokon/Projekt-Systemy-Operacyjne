@@ -18,6 +18,7 @@ int main(void) {
     int sem_gate4 = ipc_get_sem_from_env(IPC_ENV_SEM_GATE4);
     int sem_gate3 = ipc_get_sem_from_env(IPC_ENV_SEM_GATE3);
     int sem_inside = ipc_get_sem_from_env(IPC_ENV_SEM_INSIDE);
+    int sem_exit2 = ipc_get_sem_from_env(IPC_ENV_SEM_EXIT2);
 
     int tickets_nbr = 1;
     int discount_tickets_nbr = 0;
@@ -46,9 +47,10 @@ int main(void) {
     if (res.status == ST_OK) {
         int gate = tourist_do_lower_gate(res.pass_id, sem_inside, sem_gate4);
         if (gate != 0) return (gate < 0) ? 1 : 0;
-        int plat = tourist_do_platform_stage(res.pass_id, is_biker, group_size,
+        int plat = tourist_do_platform_stage(res.pass_id, is_biker, is_vip, group_size,
                                              platform_qid, sem_inside, sem_gate3);
         if (plat != 0) return (plat < 0) ? 1 : 0;
+        if (tourist_do_upper_exit(is_biker, sem_exit2) < 0) return 1;
         printf(CLR_GREEN"    TURYSTA %d: dostalem pass_id=%u pass_type=%d discount=%d%%\n" RESET,
                getpid(), res.pass_id, res.assigned_pass, res.discount_applied);
     } else {

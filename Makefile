@@ -59,10 +59,10 @@ employee2.o: src/employee2.c include/simulation.h
 tourist: tourist.o tourist_utils.o ipc.o data_randomization.o process_utils.o cablecar_utils.o sim_time.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-tourist.o: src/tourist.c include/simulation.h include/ipc.h include/tourist_utils.h
+tourist.o: src/tourist.c include/simulation.h include/ipc.h include/tourist_utils.h include/cablecar.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-tourist_utils.o: src/utils/tourist_utils.c include/tourist_utils.h include/simulation.h include/ipc.h include/sim_time.h
+tourist_utils.o: src/utils/tourist_utils.c include/tourist_utils.h include/simulation.h include/ipc.h include/sim_time.h include/cablecar.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 cablecar_utils.o: src/utils/cablecar_utils.c include/cablecar.h
