@@ -18,6 +18,10 @@
 #define TRAIL_T2 5
 #define TRAIL_T3 7
 
+#define TK1_DURATION 5
+#define TK2_DURATION 10
+#define TK3_DURATION 15
+
 
 
 typedef enum {

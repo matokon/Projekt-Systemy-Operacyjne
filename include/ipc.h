@@ -49,6 +49,8 @@ typedef struct {
     pass_type_t assigned_pass; // co kasjer przydzielił
     int discount_applied;   // np. 25 albo 0 (nie dotyczy dzieci <8 wtedy patrzymy z discount_tickets_nbr)
     uint32_t pass_id;       // ID karnetu do rejestracji na bramkach
+    int issued_at;          // czas wydania (sekundy symulacji)
+    int valid_until;        // czas waznosci (sekundy symulacji)
 
 } ticket_msg_t;
 
@@ -68,6 +70,8 @@ typedef struct {
     int is_biker;
     int group_size;        // liczba miejsc zajmowanych przez osobe + dzieci
     uint32_t pass_id;
+    int issued_at;          // czas wydania (sekundy symulacji)
+    int valid_until;        // czas waznosci (sekundy symulacji)
 } platform_msg_t;
 
 #define PLATFORM_MSGSZ (sizeof(platform_msg_t) - sizeof(long))

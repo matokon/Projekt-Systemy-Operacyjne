@@ -83,9 +83,14 @@ void tourist_fill_ticket_request(ticket_msg_t *req, int age, int is_vip, int is_
     req->requested_pass = rand_pass_or_zero();
 }
 
-int tourist_do_lower_gate(uint32_t pass_id, int sem_inside, int sem_gate4) {
+int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_until,
+                          int sem_inside, int sem_gate4) {
     if (sim_is_closed()) {
         printf(CLR_RED_B"    TURYSTA %d: bramki zamkniete (po Tk)\n" RESET, getpid());
+        return 1;
+    }
+    if (pass_type != PASS_SINGLE && sim_now() > valid_until) {
+        printf(CLR_RED_B"    TURYSTA %d: karnet niewazny (po czasie)\n" RESET, getpid());
         return 1;
     }
     if (ipc_sem_wait(sem_inside) < 0) return -1;

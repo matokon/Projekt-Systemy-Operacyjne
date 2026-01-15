@@ -77,6 +77,7 @@ int main() {
         }
 
         int discount = ((msg.age < 10 && msg.age > 7) || msg.age > 65) ? 25 : 0;
+        int now = sim_now();
         
         ticket_msg_t res;
         memset(&res, 0, sizeof(res));
@@ -88,6 +89,12 @@ int main() {
         res.assigned_pass = pick_pass(msg.requested_pass);
         res.discount_applied = discount;
         res.pass_id = next_pass_id++;
+        res.issued_at = now;
+        res.valid_until = now;
+        if (res.assigned_pass == PASS_TK1) res.valid_until = now + TK1_DURATION;
+        if (res.assigned_pass == PASS_TK2) res.valid_until = now + TK2_DURATION;
+        if (res.assigned_pass == PASS_TK3) res.valid_until = now + TK3_DURATION;
+        if (res.assigned_pass == PASS_DAY) res.valid_until = sim_get_tk();
 
         ipc_send(qid, &res);
 

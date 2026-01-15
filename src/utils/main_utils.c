@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 #include "main_utils.h"
 #include "ipc.h"
 
@@ -36,4 +38,49 @@ void cleanup_ipc(int qid, int platform_qid,
     ipc_detach_shm(cablecar);
     ipc_destroy_shm(shmid);
     ipc_destroy_sem(sem_shm);
+}
+
+int generate_report(const char *log_path, const char *out_path) {
+    FILE *in = fopen(log_path, "r");
+    if (!in) {
+        fprintf(stderr, "report: cannot open %s: %s\n", log_path, strerror(errno));
+        return -1;
+    }
+
+    unsigned int *counts = NULL;
+    size_t counts_sz = 0;
+    char line[256];
+
+    while (fgets(line, sizeof(line), in)) {
+        unsigned int pass_id = 0;
+        if (sscanf(line, "%u;", &pass_id) != 1) continue;
+        if (pass_id >= counts_sz) {
+            size_t new_sz = pass_id + 1;
+            unsigned int *tmp = (unsigned int*)realloc(counts, new_sz * sizeof(*counts));
+            if (!tmp) {
+                fclose(in);
+                free(counts);
+                perror("report realloc");
+                return -1;
+            }
+            for (size_t i = counts_sz; i < new_sz; i++) tmp[i] = 0;
+            counts = tmp;
+            counts_sz = new_sz;
+        }
+        counts[pass_id]++;
+    }
+    fclose(in);
+
+    FILE *out = fopen(out_path, "w");
+    if (!out) {
+        fprintf(stderr, "report: cannot open %s: %s\n", out_path, strerror(errno));
+        free(counts);
+        return -1;
+    }
+    for (size_t i = 1; i < counts_sz; i++) {
+        if (counts[i]) fprintf(out, "%zu;%u\n", i, counts[i]);
+    }
+    fclose(out);
+    free(counts);
+    return 0;
 }

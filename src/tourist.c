@@ -13,6 +13,11 @@
 int main(void) {
     srand(time(NULL) ^ getpid());
 
+    if ((rand() % 100) < 20) {
+        printf(CLR_RED_B"    TURYSTA %d: rezygnuje z kolejki\n" RESET, getpid());
+        return 0;
+    }
+
     int qid = ipc_get_qid_from_env();
     int platform_qid = tourist_get_env_int(IPC_ENV_PLATFORM_QID);
     int sem_gate4 = ipc_get_sem_from_env(IPC_ENV_SEM_GATE4);
@@ -45,7 +50,8 @@ int main(void) {
     if (ipc_recv(qid, (long)getpid(), &res, 0) < 0) return 1;
 
     if (res.status == ST_OK) {
-        int gate = tourist_do_lower_gate(res.pass_id, sem_inside, sem_gate4);
+        int gate = tourist_do_lower_gate(res.pass_id, res.assigned_pass, res.valid_until,
+                                         sem_inside, sem_gate4);
         if (gate != 0) return (gate < 0) ? 1 : 0;
         int plat = tourist_do_platform_stage(res.pass_id, is_biker, is_vip, group_size,
                                              platform_qid, sem_inside, sem_gate3);

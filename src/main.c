@@ -120,6 +120,8 @@ int main(int argc, char **argv) {
     waitpid(emp1_pid, &status, 0);
     waitpid(emp2_pid, &status, 0);
 
+    generate_report("platform_gate.log", "report.txt");
+
     cleanup_ipc(qid, platform_qid, sem_gate4, sem_gate3, sem_inside,
                 sem_chairs, sem_shm, sem_exit2, cablecar, shmid);
 
