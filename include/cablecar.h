@@ -13,6 +13,7 @@
 #define IPC_ENV_TK "CABLECAR_TK"
 #define IPC_ENV_START "CABLECAR_START"
 #define IPC_ENV_SEM_EXIT2 "CABLECAR_SEM_EXIT2"
+#define IPC_ENV_STOP_ONCE "CABLECAR_STOP_ONCE"
 
 #define TRAIL_T1 3
 #define TRAIL_T2 5
@@ -40,6 +41,8 @@ typedef struct {
     int head;
     int tail;
     int occupied;
+    pid_t emp1_pid;
+    pid_t emp2_pid;
 } cablecar_t;
 
 void cablecar_init(cablecar_t *cablecar);

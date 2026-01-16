@@ -14,4 +14,6 @@ void cablecar_init(cablecar_t *cablecar)
             cablecar->seats[i].pids[j] = 0;
         }
     }
+    cablecar->emp1_pid = 0;
+    cablecar->emp2_pid = 0;
 }

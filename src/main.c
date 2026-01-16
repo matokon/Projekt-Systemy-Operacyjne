@@ -34,11 +34,13 @@ static int parse_arg_int(const char *s, const char *name) {
 int main(int argc, char **argv) {
 
     if (argc < 3) {
-        fprintf(stderr, "Uzycie: %s <Tp> <Tk>\n", argv[0]);
+        fprintf(stderr, "Uzycie: %s <Tp> <Tk> [stop_once]\n", argv[0]);
         return 1;
     }
     int tp = parse_arg_int(argv[1], "Tp");
     int tk = parse_arg_int(argv[2], "Tk");
+    int stop_once = 0;
+    if (argc >= 4) stop_once = atoi(argv[3]) != 0;
     if (tk <= tp) {
         fprintf(stderr, "Niepoprawny zakres: Tp=%d Tk=%d\n", tp, tk);
         return 1;
@@ -69,6 +71,7 @@ int main(int argc, char **argv) {
     set_env_int(IPC_ENV_TP, tp);
     set_env_int(IPC_ENV_TK, tk);
     set_env_int(IPC_ENV_START, (int)time(NULL));
+    set_env_int(IPC_ENV_STOP_ONCE, stop_once);
 
     pid_t cashier_pid = start_process("./cashier",  "cashier",  "cashier fork");
     pid_t emp1_pid    = start_process("./employee1","employee1","employee1 fork");
