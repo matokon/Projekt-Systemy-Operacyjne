@@ -49,6 +49,11 @@ int main(int argc, char **argv) {
 
     printf(CLR_PINK"[MAIN] %d Start programu" RESET "\n", getpid());
 
+    FILE *lg = fopen("platform_gate.log", "w");
+    if (lg) fclose(lg);
+    FILE *rp = fopen("report.txt", "w");
+    if (rp) fclose(rp);
+
     int qid = ipc_create_queue();
     ipc_set_env_qid(qid);
     int platform_qid = ipc_create_queue_with_id('P');

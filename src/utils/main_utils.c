@@ -53,9 +53,11 @@ int generate_report(const char *log_path, const char *out_path) {
 
     while (fgets(line, sizeof(line), in)) {
         unsigned int pass_id = 0;
-        if (sscanf(line, "%u;", &pass_id) != 1) continue;
-        if (pass_id >= counts_sz) {
-            size_t new_sz = pass_id + 1;
+        int pid = -1;
+        if (sscanf(line, "%u;%d;", &pass_id, &pid) != 2 || pid <= 0) continue;
+        unsigned int key = (unsigned int)pid;
+        if (key >= counts_sz) {
+            size_t new_sz = key + 1;
             unsigned int *tmp = (unsigned int*)realloc(counts, new_sz * sizeof(*counts));
             if (!tmp) {
                 fclose(in);
@@ -67,7 +69,7 @@ int generate_report(const char *log_path, const char *out_path) {
             counts = tmp;
             counts_sz = new_sz;
         }
-        counts[pass_id]++;
+        counts[key]++;
     }
     fclose(in);
 

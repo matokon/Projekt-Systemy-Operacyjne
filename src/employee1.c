@@ -7,7 +7,6 @@
 #include "simulation.h"
 #include "cablecar.h"
 #include "ipc.h"
-#include "sim_time.h"
 #include "platform_queue.h"
 
 static volatile sig_atomic_t g_stopped = 0;

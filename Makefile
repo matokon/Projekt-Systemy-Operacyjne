@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra -O2 -Iinclude
 
 OBJS = main.o process_utils.o ipc.o cashier.o data_randomization.o \
        employee1.o platform_queue.o employee2.o tourist.o tourist_utils.o \
-       cablecar_utils.o main_utils.o sim_time.o
+       cablecar_utils.o main_utils.o
 DEPS = $(OBJS:.o=.d)
 
 .PHONY: all clean
@@ -27,24 +27,21 @@ process_utils.o: src/utils/process_utils.c include/simulation.h
 main_utils.o: src/utils/main_utils.c include/main_utils.h include/cablecar.h include/ipc.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-sim_time.o: src/utils/sim_time.c include/sim_time.h include/cablecar.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
 # --------- ipc ---------
 ipc.o: src/ipc.c include/ipc.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # --------- cashier / employee / tourist ---------
-cashier: cashier.o ipc.o data_randomization.o sim_time.o
+cashier: cashier.o ipc.o data_randomization.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-cashier.o: src/cashier.c include/simulation.h include/ipc.h include/sim_time.h
+cashier.o: src/cashier.c include/simulation.h include/ipc.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-employee1: employee1.o ipc.o platform_queue.o sim_time.o
+employee1: employee1.o ipc.o platform_queue.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-employee1.o: src/employee1.c include/simulation.h include/ipc.h include/platform_queue.h include/sim_time.h
+employee1.o: src/employee1.c include/simulation.h include/ipc.h include/platform_queue.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 platform_queue.o: src/platform_queue.c include/platform_queue.h include/ipc.h include/cablecar.h
@@ -56,13 +53,13 @@ employee2: employee2.o ipc.o
 employee2.o: src/employee2.c include/simulation.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-tourist: tourist.o tourist_utils.o ipc.o data_randomization.o process_utils.o cablecar_utils.o sim_time.o
+tourist: tourist.o tourist_utils.o ipc.o data_randomization.o process_utils.o cablecar_utils.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 tourist.o: src/tourist.c include/simulation.h include/ipc.h include/tourist_utils.h include/cablecar.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-tourist_utils.o: src/utils/tourist_utils.c include/tourist_utils.h include/simulation.h include/ipc.h include/sim_time.h include/cablecar.h
+tourist_utils.o: src/utils/tourist_utils.c include/tourist_utils.h include/simulation.h include/ipc.h include/cablecar.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 cablecar_utils.o: src/utils/cablecar_utils.c include/cablecar.h

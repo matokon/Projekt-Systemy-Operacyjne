@@ -50,15 +50,23 @@ int main(void) {
     if (ipc_recv(qid, (long)getpid(), &res, 0) < 0) return 1;
 
     if (res.status == ST_OK) {
-        int gate = tourist_do_lower_gate(res.pass_id, res.assigned_pass, res.valid_until,
-                                         sem_inside, sem_gate4);
-        if (gate != 0) return (gate < 0) ? 1 : 0;
-        int plat = tourist_do_platform_stage(res.pass_id, is_biker, is_vip, group_size,
-                                             platform_qid, sem_inside, sem_gate3);
-        if (plat != 0) return (plat < 0) ? 1 : 0;
-        if (tourist_do_upper_exit(is_biker, sem_exit2) < 0) return 1;
-        printf(CLR_GREEN"    TURYSTA %d: dostalem pass_id=%u pass_type=%d discount=%d%%\n" RESET,
-               getpid(), res.pass_id, res.assigned_pass, res.discount_applied);
+        int ride_count = 0;
+        for (;;) {
+            int gate_tokens = tourist_do_lower_gate(res.pass_id, res.assigned_pass, res.valid_until,
+                                                    sem_inside, sem_gate4, group_size);
+            if (gate_tokens <= 0) break;
+            int plat = tourist_do_platform_stage(res.pass_id, is_biker, is_vip, group_size,
+                                                 platform_qid, sem_inside, sem_gate3);
+            if (plat != 0) break;
+            if (tourist_do_upper_exit(is_biker, sem_exit2) < 0) return 1;
+            ride_count++;
+            printf(CLR_GREEN"    TURYSTA %d: pass_id=%u zjazd #%d pass_type=%d discount=%d%%\n" RESET,
+                   getpid(), res.pass_id, ride_count, res.assigned_pass, res.discount_applied);
+
+            if (res.assigned_pass == PASS_SINGLE) break;
+            if (sim_now() > res.valid_until) break;
+            usleep(200 * 1000);
+        }
     } else {
         printf(CLR_RED_B"    TURYSTA %d: odmowa status=%d\n" RESET, getpid(), res.status);
     }

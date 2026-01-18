@@ -6,7 +6,6 @@
 #include "tourist_utils.h"
 #include "simulation.h"
 #include "ipc.h"
-#include "sim_time.h"
 #include "cablecar.h"
 
 static void log_lower_gate(uint32_t pass_id) {
@@ -27,7 +26,7 @@ static void log_platform_gate(uint32_t pass_id) {
         return;
     }
     time_t now = time(NULL);
-    fprintf(f, "%u;%ld;gate=platform\n", pass_id, (long)now);
+    fprintf(f, "%u;%d;%ld;gate=platform\n", pass_id, getpid(), (long)now);
     fclose(f);
 }
 
@@ -84,7 +83,7 @@ void tourist_fill_ticket_request(ticket_msg_t *req, int age, int is_vip, int is_
 }
 
 int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_until,
-                          int sem_inside, int sem_gate4) {
+                          int sem_inside, int sem_gate4, int group_size) {
     if (sim_is_closed()) {
         printf(CLR_RED_B"    TURYSTA %d: bramki zamkniete (po Tk)\n" RESET, getpid());
         return 1;
@@ -93,13 +92,16 @@ int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_unt
         printf(CLR_RED_B"    TURYSTA %d: karnet niewazny (po czasie)\n" RESET, getpid());
         return 1;
     }
-    if (ipc_sem_wait(sem_inside) < 0) return -1;
+    if (group_size < 1) group_size = 1;
+    for (int i = 0; i < group_size; i++) {
+        if (ipc_sem_wait(sem_inside) < 0) return -1;
+    }
     if (ipc_sem_wait(sem_gate4) < 0) return -1;
     log_lower_gate(pass_id);
     ipc_sem_post(sem_gate4);
     int wait_ms = (rand() % 2000) + 500;
     usleep((useconds_t)wait_ms * 1000);
-    return 0;
+    return group_size;
 }
 
 int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int group_size, int platform_qid,
@@ -128,7 +130,10 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int gr
     if (ipc_sem_wait(sem_gate3) < 0) return -1;
     log_platform_gate(pass_id);
     ipc_sem_post(sem_gate3);
-    ipc_sem_post(sem_inside);
+    if (group_size < 1) group_size = 1;
+    for (int i = 0; i < group_size; i++) {
+        ipc_sem_post(sem_inside);
+    }
     return 0;
 }
 

@@ -7,7 +7,6 @@
 #include "simulation.h"
 #include "cablecar.h"
 #include "ipc.h"
-#include "sim_time.h"
 
 typedef enum {
     HNDL_OK = 0,
