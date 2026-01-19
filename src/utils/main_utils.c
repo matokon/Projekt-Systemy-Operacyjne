@@ -53,11 +53,13 @@ int generate_report(const char *log_path, const char *out_path) {
 
     while (fgets(line, sizeof(line), in)) {
         unsigned int pass_id = 0;
-        int pid = -1;
-        if (sscanf(line, "%u;%d;", &pass_id, &pid) != 2 || pid <= 0) continue;
-        unsigned int key = (unsigned int)pid;
-        if (key >= counts_sz) {
-            size_t new_sz = key + 1;
+        char ts[32] = {0};
+        char gate[16] = {0};
+        if (sscanf(line, "%u;%31[^;];gate=%15s", &pass_id, ts, gate) != 3) continue;
+        if (pass_id == 0) continue;
+        if (strcmp(gate, "platform") != 0) continue;
+        if (pass_id >= counts_sz) {
+            size_t new_sz = pass_id + 1;
             unsigned int *tmp = (unsigned int*)realloc(counts, new_sz * sizeof(*counts));
             if (!tmp) {
                 fclose(in);
@@ -69,16 +71,17 @@ int generate_report(const char *log_path, const char *out_path) {
             counts = tmp;
             counts_sz = new_sz;
         }
-        counts[key]++;
+        counts[pass_id]++;
     }
     fclose(in);
 
-    FILE *out = fopen(out_path, "w");
+    FILE *out = fopen(out_path, "a");
     if (!out) {
         fprintf(stderr, "report: cannot open %s: %s\n", out_path, strerror(errno));
         free(counts);
         return -1;
     }
+    fprintf(out, "\n--- PODSUMOWANIE PRZEJAZDOW ---\n");
     for (size_t i = 1; i < counts_sz; i++) {
         if (counts[i]) fprintf(out, "%zu;%u\n", i, counts[i]);
     }

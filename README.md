@@ -1,95 +1,172 @@
-# Cable Car Lift – Simulation (IPC / Processes)
+# Kolej linowa - symulacja procesow i IPC
 
-A simulation of a summer chairlift system in a mountain resort town. The system models pedestrians and downhill bikers, ticket/pass sales, station gates, platform access control (grouping people onto chairs), emergency stop/resume coordination between employees, and end-of-day usage reporting.
+Symulacja dzialania kolei krzeselkowej w sezonie letnim. Program odwzorowuje turystow (piesi i rowerzysci), sprzedaz biletow i karnetow, bramki stacji, peron z doborem skladu krzeselek, zatrzymanie i wznowienie kolei oraz raport z przejazdow.
 
-## Problem Summary (from assignment)
+## 1. Srodowisko i narzedzia
 
-- The lift uses **4-seat chairs**, **72 chairs total**.
-- At most **36 chairs can be occupied simultaneously**.
-- Allowed chair composition:
-  - **max 2 bikers**, or
-  - **1 biker + 2 pedestrians**, or
-  - **4 pedestrians**
-- People arrive at random times (not all must use the lift).
-- Access requires paying for a **ticket/pass** at the cashier.
-- Pass types: **single-use**, **time-based** (Tk1, Tk2, Tk3), or **daily**.
-- **25% discount** for:
-  - children **under 10**
-  - seniors **over 65**
-- Children **under 8** are under constant adult supervision.
-- Two gate layers:
-  - **Lower station entry**: **4 gates in parallel**, pass validation.
-  - **Platform entry**: **3 gates in parallel**, group/chair composition validation, opened by **Employee1**.
-- Between gate layers (inside lower station) at most **N people** can be present.
-- Upper station exit uses **2 one-way lanes** in parallel.
-- Lower station is operated by **Employee1**, upper station by **Employee2**.
-- In danger situations, Employee1 or Employee2 can **stop the lift** (*signal1*).
-- To **resume**, the stopping employee communicates with the other; after a readiness acknowledgment, the lift restarts (*signal2*).
-- Bikers ride down one of 3 trails with different average ride times: **T1 < T2 < T3**.
-- Operating hours: **Tp–Tk**:
-  - at time **Tk**, gates stop accepting passes,
-  - everyone already on the platform must still be transported uphill,
-  - then after **3 seconds** the lift must shut down.
-- Children aged **4–8** must ride with an adult:
-  - one adult may supervise **up to 2** children (age 4–8).
-- Every gate pass usage is logged: **pass_id – timestamp**.
-- VIP users (~**1%**) enter the lower station **without queueing** (still using a pass).
-- At the end of the day, a report is generated with the number of rides per pass/person.
+- System: WSL
+- Jezyk: C
+- Kompilator: GCC
+- Budowanie: GNU Make
+- Edytor: VS Code
 
-## High-Level Architecture
+## 2. Budowanie i uruchomienie
 
-The simulation is implemented as multiple cooperating processes (and optionally helper threads), communicating via IPC:
+Budowanie:
 
-- **Cashier** – sells/validates passes, assigns `pass_id`, applies discounts.
-- **Employee1 (Lower Station)** – manages platform entry gates and validates chair group composition, can stop/resume the lift.
-- **Employee2 (Upper Station)** – manages upper station flow, can stop/resume the lift, acknowledges readiness to restart.
-- **Tourist** – simulates a single person (pedestrian/biker, VIP/normal, age, etc.). Some tourists may decide not to ride.
-
-### IPC & Synchronization (typical setup)
-
-This project uses classic UNIX IPC primitives:
-- **Message queues** for request/response communication between tourists and cashier/employees.
-- **Semaphores / shared memory / mutexes** (depending on implementation) to enforce:
-  - max **N people** inside the lower station
-  - gate parallelism constraints (4 entry gates, 3 platform gates, 2 exit lanes)
-  - max **36 occupied chairs** at once
-  - lift stop/resume state and employee handshakes
-- **Logging** into text files for the simulation report.
-
-
-## Main Rules Enforced in the Simulation
-
-- **Capacity constraints**
-  - Lower station interior limited to **N** people.
-  - No more than **36** simultaneously occupied chairs.
-- **Chair composition validation**
-  - 2 bikers OR 1 biker + 2 pedestrians OR 4 pedestrians.
-- **Discount policy**
-  - 25% for age < 10 and age > 65.
-- **Child supervision**
-  - ages 4–8 must be assigned to an adult supervisor.
-  - max 2 supervised children (4–8) per adult.
-- **VIP handling**
-  - VIP tourists bypass the queue at lower station entry (still validated and logged).
-- **Operating hours**
-  - after time **Tk** passes are rejected at gates.
-  - platform occupants must still ride up.
-  - lift shuts down 3 seconds after platform drains.
-
-## How to Run
-
-Build:
 ```
 make
 ```
 
-Run (provide Tp and Tk as seconds for simulation window):
+Uruchomienie (argumenty: Tp, Tk, opcjonalnie stop_once):
+
 ```
-./projekt <Tp> <Tk>
+./projekt <Tp> <Tk> [stop_once]
 ```
 
-Example:
+Przyklad:
+
 ```
 ./projekt 0 10
 ```
 
+Parametr `stop_once`:
+- `1` - po 5 sekundach symulacji wysylany jest STOP i nastepnie WZNOWIENIE.
+- `0` lub brak - brak wymuszonego zatrzymania.
+
+## 3. Pokrycie wymagan (skrot)
+
+- Krzeselka 4-osobowe, 72 sztuki, max 36 zajetych naraz.
+- Dopuszczalne sklady: 2 rowerzystow, albo 1 rowerzysta + 2 pieszych, albo 4 pieszych.
+- Losowe przyjscia, czesc turystow moze zrezygnowac.
+- Sprzedaz biletow/karnetow w kasie.
+- Karnety: jednorazowe, czasowe (Tk1/Tk2/Tk3), dzienne.
+- Znizka 25% dla wieku <10 i >65.
+- Dzieci <8 pod opieka doroslego; dorosly max 2 dzieci (4-8).
+- Bramki dolne: 4 rownolegle.
+- Bramki peronu: 3 rownolegle, otwierane przez pracownika1.
+- Limit N osob w strefie miedzy bramkami.
+- Wyjscie na gorze: 2 rownolegle pasy.
+- Pracownik1 i Pracownik2, STOP/WZNOWIENIE sygnalami.
+- Trasy zjazdowe T1 < T2 < T3.
+- Godziny pracy Tp..Tk, po Tk brak wejsc na bramkach, peron sie oproznia, po 3 s koniec.
+- Logowanie uzyc karnetu na bramkach.
+- VIP (~1%) bez kolejki, ale z waznym karnetem.
+- Raport z liczby przejazdow na koniec.
+
+## 4. Struktura kodu i odpowiedzialnosci
+
+### `src/main.c`
+- Parsuje Tp/Tk (i stop_once), sprawdza zakres, ustawia czas startu.
+- Tworzy kolejki, semafory (bramki 4/3, limit N, 36 krzesel, 2 wyjscia, mutex shm) i pamiec dzielona dla kolei; wrzuca identyfikatory do env dla potomnych.
+- Inicjalizuje stan kolei w shm (ring 72 krzesel, liczniki, pid pracownikow).
+- Czyści `report.txt` na starcie.
+- Uruchamia procesy: kasjer, pracownik1, pracownik2, generator turystow (spawn w petli przez Tp..Tk).
+- Po Tk wysyla sygnal zamkniecia peronu, czeka az kolej sie oprozni, sleep 3 s, wysyla shutdown do kasjera/peronu, zabija employee2, czeka na dzieci, generuje podsumowanie w `report.txt`, sprzata IPC.
+
+### `src/cashier.c`
+- Slucha kolejki biletowej; kazdy request ma pid, wiek, VIP, rowerzysta, liczbe biletow (w tym ulgowych).
+- Losuje typ karnetu (lub honoruje podany), nalicza znizke 25% dla <10 i >65, ustawia `issued_at` i `valid_until` (Tk1/Tk2/Tk3/dzienny -> Tk).
+- Po uplywie Tk odrzuca sprzedaz (status != ST_OK).
+- Odsyla wynik do pid turysty przez msgrcv/msgrcv z mtype=pid.
+
+### `src/employee1.c`
+- Ustawia w shm swoje pid, czeka na pid pracownika2.
+- Obsluguje kolejke peronu: odbiera z `platform_qid` z priorytetem VIP (msgrcv na ujemny mtype), wpuszcza tylko do Tk lub odrzuca po zamknieciu.
+- Kolejkuje rowerzystow i grupy pieszych (max 3 osoby: dorosly+2 dzieci) i probuje formowac sklady krzeselek: 2 rowery; 1 rower + 2 pieszych; 4 pieszych. Przy rezerwacji zajmuje semafor krzeselek (36) i wpisuje pids do ringu w shm.
+- Sygnaly: SIGUSR1 zatrzymuje formowanie grup, SIGUSR2 wznawia; tryb `stop_once=1` po 5 s wysyla STOP, po ~9 s WZNOWIENIE.
+- Na zamkniecie (PLAT_SHUTDOWN) fluszuje oczekujacych z odmowa i konczy.
+
+### `src/employee2.c`
+- Ustawia w shm swoje pid, czeka na pid pracownika1.
+- Reaguje na SIGUSR1 (STOP) i SIGUSR2 (WZNOWIENIE); przyjmuje handshake i wysyla potwierdzenie do drugiego pracownika.
+- Symuluje przejazd krzesel: co 2 s zdejmuje jedno krzeselko z ringu (head++), zwalnia semafor krzeselek, az do zatrzymania.
+
+### `src/tourist.c`
+- 20% turystow rezygnuje od razu.
+- Tworzy ewentualne dzieci (dodatkowe bilety ulgowe, max 2, wtedy turysta nie jest rowerzysta).
+- Wysyla prosbe do kasjera (kolejka msg), czeka na odp. z pass_id i `valid_until`.
+- Etapy: dolne bramki (semafory: limit N i 4 bramki, log do `report.txt`), peron (wysylka prosby, priorytet VIP, po akceptacji log, zwolnienie limitu N), wyjazd u gory (semafor 2 pasy, log).
+- Petla przejazdow: jednorazowy konczy po 1, czasowe/dzienne jezdza do `valid_until` lub Tk.
+
+### `src/ipc.c`
+- Wrappery na msgget/msgsnd/msgrcv/msgctl, semget/semctl/semop (wait/post), shmget/shmat/shmdt/shmctl, plus helpery do env.
+
+### `src/platform_queue.c`
+- Bufory na oczekujacych: rowerzysci osobno, piesi z rozmiarem grupy (1-3).
+- Algorytm doboru: najpierw 2 rowery; potem 1 rower + suma pieszych =2; potem suma pieszych =4. Rezerwacja krzeselka (semafory krzesel/mutex shm), wpisy pidow do ringu, odpowiedzi PLAT_RES do kazdego pid.
+
+### `src/utils/cablecar_utils.c`
+- Ustawia tail/head/occupied=0, czysci 72 sloty siedzen i pids, zeruje pid pracownikow.
+
+### `src/utils/tourist_utils.c`
+- Bramki dolne: sprawdza Tk/valid_until, rezerwuje semaforem limit N (liczy dzieci), semafor 4 bramek, loguje do `report.txt`.
+- Peron: wysyla PLAT_REQ, czeka na odp., loguje wejscie, zwalnia limit N po przejsciu.
+- Wyjscie gorne: semafor 2 pasow wyjscia, loguje, dla rowerzystow dodaje czas zjazdu T1/T2/T3.
+
+### `src/utils/main_utils.c`
+- Pomocnicze set_env dla semaforow/liczb, cleanup zasobow IPC.
+- `generate_report`: czyta `report.txt`, zlicza wjazdy na peron (`gate=platform`) per pass_id i dopisuje podsumowanie na koniec pliku.
+
+### `include/*.h`
+- Struktury, stale, prototypy funkcji, klucze IPC i zmienne srodowiskowe.
+
+## 5. Jak to dziala (opis mechaniki)
+
+### IPC
+- Kolejki komunikatow: turysta <-> kasjer, turysta <-> peron.
+- Semafory: limit N osob, bramki (4 i 3), krzeselka (36), wyjscia (2), dostep do shm.
+- Pamiec dzielona: stan kolei (ring krzeselek, liczniki, pid pracownikow).
+
+### Kolejka i krzeselka
+- Peron sklada grupy w zgodzie z zasadami (piesi/rowerzysci, dzieci).
+- Krzeselka trzymane w ringu o dlugosci 72, z limitem 36 jednoczesnie zajetych.
+
+### Czas i wygasanie karnetow
+- Tp i Tk sa parametrami uruchomienia.
+- Karnety czasowe: `valid_until = issued_at + TkX`.
+- Karnet dzienny: `valid_until = Tk`.
+- Turysta jezdzi w petli do przekroczenia `valid_until`.
+
+### STOP/WZNOWIENIE
+- STOP (SIGUSR1) wysylany do drugiego pracownika.
+- Odpowiedz WZNOWIENIE (SIGUSR2) po potwierdzeniu gotowosci.
+- `stop_once` wymusza pojedyncze zatrzymanie po 5 sekundach.
+
+## 6. Logi i raport
+
+- `report.txt` zawiera pelny log przejsc przez bramki (pass_id + czas + gate).
+- Na koncu pliku dopisywane jest podsumowanie liczby przejazdow na karnet (gate=platform).
+
+## 7. Testy
+
+Testy wykonywane recznie w WSL, build przez `make`.
+Miejsce na dokladne scenariusze testowe do uzupelnienia pozniej.
+
+## 8. Funkcje wymagane przez projekt (przyklady uzycia)
+
+- Tworzenie procesow:
+  - `fork()` -> `src/utils/process_utils.c#L10`
+  - `execl()` -> `src/utils/process_utils.c#L15`
+  - `waitpid()` -> `src/utils/process_utils.c#L74`
+- Obsluga sygnalow:
+  - `kill()` -> `src/employee1.c#L69`
+  - `signal()` -> `src/employee2.c#L45`
+- Kolejki komunikatow:
+  - `msgget()` -> `src/ipc.c#L20`
+  - `msgsnd()` -> `src/ipc.c#L134`
+  - `msgrcv()` -> `src/ipc.c#L143`
+  - `msgctl()` -> `src/ipc.c#L57`
+- Semafory:
+  - `semget()` -> `src/ipc.c#L66`
+  - `semctl()` -> `src/ipc.c#L73`
+  - `semop()` -> `src/ipc.c#L112`
+- Pamiec dzielona:
+  - `shmget()` -> `src/ipc.c#L171`
+  - `shmat()` -> `src/ipc.c#L180`
+  - `shmdt()` -> `src/ipc.c#L189`
+  - `shmctl()` -> `src/ipc.c#L197`
+- Pliki (logi/raport):
+  - `fopen()` -> `src/utils/tourist_utils.c#L12`
+  - `fclose()` -> `src/utils/tourist_utils.c#L19`
+  - `fprintf()` -> `src/utils/main_utils.c#L83`

@@ -8,36 +8,21 @@
 #include "ipc.h"
 #include "cablecar.h"
 
-static void log_lower_gate(uint32_t pass_id) {
-    FILE *f = fopen("lower_gate.log", "a");
+static void log_report(uint32_t pass_id, const char *gate) {
+    FILE *f = fopen("report.txt", "a");
     if (!f) {
-        perror("fopen lower_gate.log");
+        perror("fopen report.txt");
         return;
     }
     time_t now = time(NULL);
-    fprintf(f, "%u;%ld;gate=lower\n", pass_id, (long)now);
-    fclose(f);
-}
-
-static void log_platform_gate(uint32_t pass_id) {
-    FILE *f = fopen("platform_gate.log", "a");
-    if (!f) {
-        perror("fopen platform_gate.log");
-        return;
+    struct tm *lt = localtime(&now);
+    char ts[32] = {0};
+    if (lt) {
+        strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", lt);
+    } else {
+        snprintf(ts, sizeof(ts), "%ld", (long)now);
     }
-    time_t now = time(NULL);
-    fprintf(f, "%u;%d;%ld;gate=platform\n", pass_id, getpid(), (long)now);
-    fclose(f);
-}
-
-static void log_upper_gate(void) {
-    FILE *f = fopen("upper_gate.log", "a");
-    if (!f) {
-        perror("fopen upper_gate.log");
-        return;
-    }
-    time_t now = time(NULL);
-    fprintf(f, "%ld;gate=upper\n", (long)now);
+    fprintf(f, "%u;%s;gate=%s\n", pass_id, ts, gate);
     fclose(f);
 }
 
@@ -97,7 +82,7 @@ int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_unt
         if (ipc_sem_wait(sem_inside) < 0) return -1;
     }
     if (ipc_sem_wait(sem_gate4) < 0) return -1;
-    log_lower_gate(pass_id);
+    log_report(pass_id, "lower");
     ipc_sem_post(sem_gate4);
     int wait_ms = (rand() % 2000) + 500;
     usleep((useconds_t)wait_ms * 1000);
@@ -128,7 +113,7 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int gr
     }
 
     if (ipc_sem_wait(sem_gate3) < 0) return -1;
-    log_platform_gate(pass_id);
+    log_report(pass_id, "platform");
     ipc_sem_post(sem_gate3);
     if (group_size < 1) group_size = 1;
     for (int i = 0; i < group_size; i++) {
@@ -147,7 +132,7 @@ static int pick_trail_time(void) {
 int tourist_do_upper_exit(int is_biker, int sem_exit2) {
     if (ipc_sem_wait(sem_exit2) < 0) return -1;
     usleep(200 * 1000);
-    log_upper_gate();
+    log_report(0, "upper");
     ipc_sem_post(sem_exit2);
     if (is_biker) {
         sleep(pick_trail_time());
