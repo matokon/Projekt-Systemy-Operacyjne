@@ -141,32 +141,32 @@ Parametr `stop_once`:
 ## 7. Testy
 
 Testy wykonywane recznie w WSL, build przez `make`.
-Miejsce na dokladne scenariusze testowe do uzupelnienia pozniej.
+TODO
 
 ## 8. Funkcje wymagane przez projekt (przyklady uzycia)
 
 - Tworzenie procesow:
-  - `fork()` -> `src/utils/process_utils.c#L10`
-  - `execl()` -> `src/utils/process_utils.c#L15`
-  - `waitpid()` -> `src/utils/process_utils.c#L74`
+  - [fork() – linia 10](src/utils/process_utils.c#L10)
+  - [execl() – linia 15](src/utils/process_utils.c#L15)
+  - [waitpid() – linia 74](src/utils/process_utils.c#L74)
 - Obsluga sygnalow:
-  - `kill()` -> `src/employee1.c#L69`
-  - `signal()` -> `src/employee2.c#L45`
+  - [kill() – linia 69](src/employee1.c#L69)
+  - [signal() – linia 45](src/employee2.c#L45)
 - Kolejki komunikatow:
-  - `msgget()` -> `src/ipc.c#L20`
-  - `msgsnd()` -> `src/ipc.c#L134`
-  - `msgrcv()` -> `src/ipc.c#L143`
-  - `msgctl()` -> `src/ipc.c#L57`
+  - [msgget() – linia 20](src/ipc.c#L20)
+  - [msgsnd() – linia 134](src/ipc.c#L134)
+  - [msgrcv() – linia 143](src/ipc.c#L143)
+  - [msgctl() – linia 57](src/ipc.c#L57)
 - Semafory:
-  - `semget()` -> `src/ipc.c#L66`
-  - `semctl()` -> `src/ipc.c#L73`
-  - `semop()` -> `src/ipc.c#L112`
+  - [semget() – linia 66](src/ipc.c#L66)
+  - [semctl() – linia 73](src/ipc.c#L73)
+  - [semop() – linia 112](src/ipc.c#L112)
 - Pamiec dzielona:
-  - `shmget()` -> `src/ipc.c#L171`
-  - `shmat()` -> `src/ipc.c#L180`
-  - `shmdt()` -> `src/ipc.c#L189`
-  - `shmctl()` -> `src/ipc.c#L197`
+  - [shmget() – linia 171](src/ipc.c#L171)
+  - [shmat() – linia 180](src/ipc.c#L180)
+  - [shmdt() – linia 189](src/ipc.c#L189)
+  - [shmctl() – linia 197](src/ipc.c#L197)
 - Pliki (logi/raport):
-  - `fopen()` -> `src/utils/tourist_utils.c#L12`
-  - `fclose()` -> `src/utils/tourist_utils.c#L19`
-  - `fprintf()` -> `src/utils/main_utils.c#L83`
+  - [fopen() – linia 12](src/utils/tourist_utils.c#L12)
+  - [fclose() – linia 26](src/utils/tourist_utils.c#L26)
+  - [fprintf() – linia 84](src/utils/main_utils.c#L84)
