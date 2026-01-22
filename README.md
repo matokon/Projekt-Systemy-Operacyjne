@@ -151,7 +151,7 @@ Tak, pracownicy komunikują się pomiędzy sobą oraz natychmiast zatrzymują ru
  [employee1 – linie 18-79](src/employee1.c#L18-L79) oraz [employee2 – linie 10-73](src/employee2.c#L10-L73).
 
 
--Czy VIPy przechodzą do bramek przed zwykłą kolejką?
+- Czy VIPy przechodzą do bramek przed zwykłą kolejką?
 Tak:
  [employee1 – linie 123-139](src/employee1.c#L123-L139).
 
