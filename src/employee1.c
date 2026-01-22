@@ -87,14 +87,14 @@ int main() {
         fprintf(stderr, "Brak %s w env\n", IPC_ENV_PLATFORM_QID);
         return 1;
     }
-    int platform_qid = atoi(s1);
+    int platform_qid = (int)strtol(s1, NULL, 10);
 
     const char *s2 = getenv(IPC_ENV_SHM_CABLECAR);
     if (!s2 || !*s2) { 
         fprintf(stderr, "Brak %s w env\n", IPC_ENV_SHM_CABLECAR);
         return 1;
      }
-    int shmid = atoi(s2);
+    int shmid = (int)strtol(s2, NULL, 10);
     cablecar_t *cablecar = (cablecar_t*)ipc_attach_shm(shmid);
     int sem_shm = ipc_get_sem_from_env(IPC_ENV_SEM_SHM);
     int sem_chairs = ipc_get_sem_from_env(IPC_ENV_SEM_CHAIRS);
@@ -103,7 +103,7 @@ int main() {
 
     int stop_once = 0;
     const char *s3 = getenv(IPC_ENV_STOP_ONCE);
-    if (s3 && *s3) stop_once = atoi(s3) != 0;
+    if (s3 && *s3) stop_once = strtol(s3, NULL, 10) != 0;
     int stop_once_done = 0;
     time_t start_time = time(NULL);
 

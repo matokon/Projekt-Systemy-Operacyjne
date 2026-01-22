@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
+#include <time.h>
 #include "main_utils.h"
 #include "ipc.h"
 
@@ -88,4 +90,20 @@ int generate_report(const char *log_path, const char *out_path) {
     fclose(out);
     free(counts);
     return 0;
+}
+
+void wait_for_cablecar_empty(cablecar_t *cablecar, int sem_shm) {
+    for (;;) {
+        int occ = 0;
+        ipc_sem_wait(sem_shm);
+        occ = cablecar->occupied;
+        ipc_sem_post(sem_shm);
+        if (occ == 0) break;
+        sleep(1);
+    }
+}
+
+int parse_arg_int(const char *s) {
+    long v = strtol(s, NULL, 10);
+    return (int)v;
 }

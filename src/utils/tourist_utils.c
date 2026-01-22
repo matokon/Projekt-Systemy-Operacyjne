@@ -32,7 +32,7 @@ int tourist_get_env_int(const char *name) {
         fprintf(stderr, "Brak %s w env\n", name);
         exit(1);
     }
-    return atoi(s);
+    return (int)strtol(s, NULL, 10);
 }
 
 int tourist_handle_children(int *tickets_nbr, int *discount_tickets_nbr) {

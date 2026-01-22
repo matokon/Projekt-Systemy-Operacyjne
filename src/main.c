@@ -10,37 +10,16 @@
 #include "main_utils.h"
 #define INSIDE_LIMIT 10
 
-static void wait_for_cablecar_empty(cablecar_t *cablecar, int sem_shm) {
-    for (;;) {
-        int occ = 0;
-        ipc_sem_wait(sem_shm);
-        occ = cablecar->occupied;
-        ipc_sem_post(sem_shm);
-        if (occ == 0) break;
-        sleep(1);
-    }
-}
-
-static int parse_arg_int(const char *s, const char *name) {
-    char *end = NULL;
-    long v = strtol(s, &end, 10);
-    if (!s || *s == '\0' || (end && *end != '\0') || v < 0 || v > 86400) {
-        fprintf(stderr, "Niepoprawny %s: %s\n", name, s ? s : "(null)");
-        exit(1);
-    }
-    return (int)v;
-}
-
 int main(int argc, char **argv) {
 
     if (argc < 3) {
         fprintf(stderr, "Uzycie: %s <Tp> <Tk> [stop_once]\n", argv[0]);
         return 1;
     }
-    int tp = parse_arg_int(argv[1], "Tp");
-    int tk = parse_arg_int(argv[2], "Tk");
+    int tp = parse_arg_int(argv[1]);
+    int tk = parse_arg_int(argv[2]);
     int stop_once = 0;
-    if (argc >= 4) stop_once = atoi(argv[3]) != 0;
+    if (argc >= 4) stop_once = strtol(argv[3], NULL, 10) != 0;
     if (tk <= tp) {
         fprintf(stderr, "Niepoprawny zakres: Tp=%d Tk=%d\n", tp, tk);
         return 1;

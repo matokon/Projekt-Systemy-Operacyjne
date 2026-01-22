@@ -50,7 +50,7 @@ int ipc_get_qid_from_env(void) {
         fprintf(stderr, "Brak %s w env\n", IPC_ENV_QID);
         exit(1);
     }
-    return atoi(s);
+    return (int)strtol(s, NULL, 10);
 }
 
 int ipc_destroy_queue(int qid) {
@@ -92,7 +92,7 @@ int ipc_get_sem_from_env(const char *env_name) {
         fprintf(stderr, "Brak %s w env\n", env_name);
         exit(1);
     }
-    return atoi(s);
+    return (int)strtol(s, NULL, 10);
 }
 
 int ipc_destroy_sem(int semid) {

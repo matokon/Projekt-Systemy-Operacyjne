@@ -81,7 +81,7 @@ int main() {
         fprintf(stderr, "Brak %s w env\n", IPC_ENV_SHM_CABLECAR);
         return 1;
     }
-    int shmid = atoi(s);
+    int shmid = (int)strtol(s, NULL, 10);
     cablecar_t *cablecar = (cablecar_t*)ipc_attach_shm(shmid);
     int sem_shm = ipc_get_sem_from_env(IPC_ENV_SEM_SHM);
     int sem_chairs = ipc_get_sem_from_env(IPC_ENV_SEM_CHAIRS);

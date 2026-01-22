@@ -33,19 +33,19 @@ int spawn_child_thread(void);
 static inline int sim_get_tp(void) {
     const char *s = getenv(IPC_ENV_TP);
     if (!s || !*s) return 0;
-    return atoi(s);
+    return (int)strtol(s, NULL, 10);
 }
 
 static inline int sim_get_tk(void) {
     const char *s = getenv(IPC_ENV_TK);
     if (!s || !*s) return 0;
-    return atoi(s);
+    return (int)strtol(s, NULL, 10);
 }
 
 static inline int sim_get_start(void) {
     const char *s = getenv(IPC_ENV_START);
     if (!s || !*s) return 0;
-    return atoi(s);
+    return (int)strtol(s, NULL, 10);
 }
 
 static inline int sim_now(void) {

@@ -9,3 +9,5 @@ void cleanup_ipc(int qid, int platform_qid,
                  int sem_chairs, int sem_shm, int sem_exit2,
                  cablecar_t *cablecar, int shmid);
 int generate_report(const char *log_path, const char *out_path);
+void wait_for_cablecar_empty(cablecar_t *cablecar, int sem_shm);
+int parse_arg_int(const char *s);
