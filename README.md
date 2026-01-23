@@ -95,9 +95,6 @@ Parametr `stop_once`:
 - Bufory na oczekujacych: rowerzysci osobno, piesi z rozmiarem grupy (1-3).
 - Algorytm doboru: najpierw 2 rowery; potem 1 rower + suma pieszych =2; potem suma pieszych =4. Rezerwacja krzeselka (semafory krzesel/mutex shm), wpisy pidow do ringu, odpowiedzi PLAT_RES do kazdego pid.
 
-### `src/utils/cablecar_utils.c`
-- Ustawia tail/head/occupied=0, czysci 72 sloty siedzen i pids, zeruje pid pracownikow.
-
 ### `src/utils/tourist_utils.c`
 - Bramki dolne: sprawdza Tk/valid_until, rezerwuje semaforem limit N (liczy dzieci), semafor 4 bramek, loguje do `report.txt`.
 - Peron: wysyla PLAT_REQ, czeka na odp., loguje wejscie, zwalnia limit N po przejsciu.
@@ -158,7 +155,7 @@ Tak:
 
 - Czy pracownicy wstrzymają wpuszczanie ludzi jeżeli na koleji bedzie 36 osob?
 Tak, jest to obsłużone za pomocą semafora który nie dopuszcza do sytuacji by na koleji bylo wiecej niz 36 osob:
- [reserve_seat – linie 108-118](src/platform_queue.c#L108-L118), zwolnienie przy zjeździe w [employee2 – linie 100-111](src/employee2.c#L100-L111), semafor inicjalizowany na 36 w [main – linie 51-67](src/main.c#L51-L67).
+ [reserve_seat – linie 108-118](src/platform_queue.c#L108-L118), zwolnienie przy zjeździe w [employee2 – linie 102-110](src/employee2.c#L102-L110), semafor inicjalizowany na 36 w [main – linie 34-43](src/main.c#L34-L43).
 
 - Czy program poprawnie zakończył działanie, czy nie pozostawił żadnych procesów zombie i czy wątki/procesy są zakończone?
 Sprzątanie IPC po zakończeniu: `cleanup_ipc` usuwa kolejki/semafory/shm [main_utils.c – linie 27-41](src/utils/main_utils.c#L27-L41), wywołanie na końcu `main` po wygenerowaniu raportu.
@@ -170,9 +167,10 @@ Jak widać na zdjęciu, brak jakichkolwiek procesów zombie:
 - Tworzenie procesow:
   - [fork() – linia 10](src/utils/process_utils.c#L10)
   - [execl() – linia 15](src/utils/process_utils.c#L15)
+  - [spawn_processes_for_seconds_collect – linie 22-69](src/utils/process_utils.c#L22-L69).
   - [waitpid() – linia 74](src/utils/process_utils.c#L74)
 - Obsluga sygnalow:
-  - [kill() – linia 69](src/employee1.c#L69)
+  - [kill() – pierwsze użycie linia 36](src/employee1.c#L36)
   - [signal() – linia 45](src/employee2.c#L45)
 - Kolejki komunikatow:
   - [msgget() – linia 20](src/ipc.c#L20)

@@ -78,7 +78,6 @@ typedef struct {
 
 //ipc
 int  ipc_create_queue(void);
-int  ipc_create_queue_with_id(char proj_id);
 void ipc_set_env_qid(int qid);
 int  ipc_get_qid_from_env(void);
 int  ipc_destroy_queue(int qid);

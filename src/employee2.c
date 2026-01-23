@@ -52,16 +52,19 @@ static void init_stop_signals(cablecar_t *cablecar, int sem_shm) {
 }
 
 static void wait_for_other_pid(cablecar_t *cablecar, int sem_shm) {
-    for (;;) {
+    const int max_tries = 30;
+    for (int i = 0; i < max_tries; i++) {
         ipc_sem_wait(sem_shm);
         pid_t other = cablecar->emp1_pid;
         ipc_sem_post(sem_shm);
         if (other > 0) {
             g_other_pid = other;
-            break;
+            return;
         }
         sleep(1);
     }
+    fprintf(stderr, "Pracownik2 %d: nie znaleziono PID pracownika1 (timeout)\n", getpid());
+    exit(1);
 }
 
 static void maybe_resume(time_t stop_since) {
@@ -74,7 +77,6 @@ static void maybe_resume(time_t stop_since) {
 
 int main() {
     printf(CLR_BLUE"    Pracownik2 Start: %d" RESET "\n", getpid());
-    srand((unsigned)time(NULL) ^ (unsigned)getpid());
 
     const char *s = getenv(IPC_ENV_SHM_CABLECAR);
     if (!s || !*s) {

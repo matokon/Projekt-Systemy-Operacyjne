@@ -97,6 +97,6 @@ int spawn_child_thread(void) {
         perror("pthread_create");
         return -1;
     }
-    pthread_detach(t);//toread
+    pthread_detach(t);
     return 0;
 }

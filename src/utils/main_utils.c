@@ -6,6 +6,7 @@
 #include <time.h>
 #include "main_utils.h"
 #include "ipc.h"
+#include "cablecar.h"
 
 void set_env_int(const char *name, int value) {
     char buf[32];
@@ -106,4 +107,22 @@ void wait_for_cablecar_empty(cablecar_t *cablecar, int sem_shm) {
 int parse_arg_int(const char *s) {
     long v = strtol(s, NULL, 10);
     return (int)v;
+}
+
+void cablecar_init(cablecar_t *cablecar)
+{
+    cablecar->head = 0;
+    cablecar->tail = 0;
+    cablecar->occupied = 0;
+
+    for (int i = 0; i < 72; i++) {
+        cablecar->seats[i].state = SEAT_FREE;
+        cablecar->seats[i].group_size = 0;
+        for(int j = 0; j < 4; j++)
+        {
+            cablecar->seats[i].pids[j] = 0;
+        }
+    }
+    cablecar->emp1_pid = 0;
+    cablecar->emp2_pid = 0;
 }

@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
 
     int qid = ipc_create_queue();
     ipc_set_env_qid(qid);
-    int platform_qid = ipc_create_queue_with_id('P');
+    int platform_qid = ipc_create_queue();
     set_env_int(IPC_ENV_PLATFORM_QID, platform_qid);
     int sem_gate4 = ipc_create_sem('G', 4);
     int sem_gate3 = ipc_create_sem('T', 3);
@@ -58,8 +58,6 @@ int main(int argc, char **argv) {
     pid_t cashier_pid = start_process("./cashier",  "cashier",  "cashier fork");
     pid_t emp1_pid    = start_process("./employee1","employee1","employee1 fork");
     pid_t emp2_pid    = start_process("./employee2","employee2","employee2 fork");
-
-    srand(time(NULL) ^ getpid());
 
     printf(CLR_PINK"[MAIN %d] Zaczynam generowac turystow przez %d s (Tp=%d Tk=%d)\n"RESET,
            getpid(), duration_sec, tp, tk);
