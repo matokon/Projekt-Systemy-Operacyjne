@@ -91,6 +91,8 @@ int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_unt
 
 int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int group_size, int platform_qid,
                               int sem_inside, int sem_gate3) {
+    if (group_size < 1) group_size = 1;
+    
     platform_msg_t preq;
     memset(&preq, 0, sizeof(preq));
     preq.mtype = is_vip ? MT_VIP_OR_CTRL : MT_NORMAL;
@@ -107,7 +109,6 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int gr
     if (ipc_recv_platform(platform_qid, (long)getpid(), &pres, 0) < 0) return -1;
 
     if (pres.kind == PLAT_SHUTDOWN) {
-        if (group_size < 1) group_size = 1;
         for (int i = 0; i < group_size; i++) {
             ipc_sem_post(sem_inside);
         }
@@ -118,7 +119,6 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int gr
     if (ipc_sem_wait(sem_gate3) < 0) return -1;
     log_report(pass_id, "platform");
     ipc_sem_post(sem_gate3);
-    if (group_size < 1) group_size = 1;
     for (int i = 0; i < group_size; i++) {
         ipc_sem_post(sem_inside);
     }
