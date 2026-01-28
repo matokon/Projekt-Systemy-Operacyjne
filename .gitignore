@@ -1,0 +1,11 @@
+# Build artifacts
+*.o
+*.d
+projekt
+cashier
+employee1
+employee2
+tourist
+
+# Test files
+report.txt
