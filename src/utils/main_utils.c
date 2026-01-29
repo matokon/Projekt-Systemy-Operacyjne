@@ -97,17 +97,6 @@ int generate_report(const char *log_path, const char *out_path) {
     return 0;
 }
 
-void wait_for_cablecar_empty(cablecar_t *cablecar, int sem_shm, int sem_work_avail) {
-    for (;;) {
-        int occ = 0;
-        ipc_sem_wait(sem_shm);
-        occ = cablecar->occupied;
-        ipc_sem_post(sem_shm);
-        if (occ == 0) break;
-        ipc_sem_wait(sem_work_avail);
-    }
-}
-
 int parse_arg_int(const char *s) {
     long v = strtol(s, NULL, 10);
     return (int)v;

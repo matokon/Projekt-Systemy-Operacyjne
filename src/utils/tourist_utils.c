@@ -83,8 +83,6 @@ int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_unt
     if (ipc_sem_wait(sem_gate4) < 0) return -1;
     log_report(pass_id, "lower");
     ipc_sem_post(sem_gate4);
-    int wait_ms = (rand() % 2000) + 500;
-    // usleep((useconds_t)wait_ms * 1000);
     return group_size;
 }
 
@@ -130,20 +128,10 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int gr
     return 0;
 }
 
-static int pick_trail_time(void) {
-    int r = rand() % 3;
-    if (r == 0) return TRAIL_T1;
-    if (r == 1) return TRAIL_T2;
-    return TRAIL_T3;
-}
-
 int tourist_do_upper_exit(int is_biker, int sem_exit2) {
+    (void)is_biker;
     if (ipc_sem_wait(sem_exit2) < 0) return -1;
-    // usleep(200 * 1000);
     log_report(0, "upper");
     ipc_sem_post(sem_exit2);
-    if (is_biker) {
-        // sleep(pick_trail_time());
-    }
     return 0;
 }

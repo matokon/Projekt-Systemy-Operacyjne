@@ -79,18 +79,11 @@ void wait_for_pids(pid_t *pids, int count) {
 
 void* child_thread_fn(void *arg) {
     (void)arg;
-    for (;;) {
-        sched_yield();
-    }
+    pthread_exit(NULL);
     return NULL;
 }
 
 int spawn_child_thread(void) {
-    pthread_t t;
-    if (pthread_create(&t, NULL, child_thread_fn, NULL) != 0) {
-        perror("pthread_create");
-        return -1;
-    }
-    pthread_detach(t);
+    (void)child_thread_fn;
     return 0;
 }
