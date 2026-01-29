@@ -143,10 +143,29 @@ Parametr `stop_once`:
 
 ## 7. Testy (manualne)
 
-- Poprawne składy i limit 36 miejsc – kontrolowane w `platform_try_form_groups` + semafor krzeseł, zwalniany w `employee2`.
-- Natychmiastowe zatrzymanie/wznowienie – sygnały SIGUSR1/2 między pracownikami, opcjonalny `stop_once`.
-- VIP przed zwykłymi – peron odbiera z priorytetem VIP (mtype ujemny).
-- Sprzątanie zasobów – `cleanup_ipc` usuwa kolejki/semafory/shm; po zakończeniu `ipcs` puste.
+
+- Czy program nigdy nie usadzi na jednym krzesełku więcej osób niż pozwalają zasady?
+Nie, jest to obsłużone w funkcji:
+ [platform_try_form_groups – linie 122-171](src/platform_queue.c#L122-L171).
+ 
+
+- Czy kolej natychmiast zatrzymuje ruch krzesełek, nie wpuszcza nowych osób na peron?
+Tak, pracownicy komunikują się pomiędzy sobą oraz natychmiast zatrzymują ruch koleji(po 9sek go wznawiają):
+ [employee1 – linie 18-79](src/employee1.c#L18-L79) oraz [employee2 – linie 10-73](src/employee2.c#L10-L73).
+
+
+-Czy VIPy przechodzą do bramek przed zwykłą kolejką?
+Tak:
+ [employee1 – linie 123-139](src/employee1.c#L123-L139).
+
+
+- Czy pracownicy wstrzymają wpuszczanie ludzi jeżeli na koleji bedzie 36 osob?
+Tak, jest to obsłużone za pomocą semafora który nie dopuszcza do sytuacji by na koleji bylo wiecej niz 36 osob:
+ [reserve_seat – linie 108-118](src/platform_queue.c#L108-L118), zwolnienie przy zjeździe w [employee2 – linie 100-111](src/employee2.c#L100-L111), semafor inicjalizowany na 36 w [main – linie 51-67](src/main.c#L51-L67).
+
+- Czy program poprawnie zakończył działanie, czy nie pozostawił żadnych procesów zombie i czy wątki/procesy są zakończone?
+Sprzątanie IPC po zakończeniu: `cleanup_ipc` usuwa kolejki/semafory/shm [main_utils.c – linie 27-41](src/utils/main_utils.c#L27-L41), wywołanie na końcu `main` po wygenerowaniu raportu.
+Jak widać na zdjęciu, brak jakichkolwiek procesów zombie:
 
 ## 8. Funkcje wymagane przez projekt (gdzie szukać)
 
