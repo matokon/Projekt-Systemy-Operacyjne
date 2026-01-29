@@ -24,7 +24,7 @@
 
 pid_t start_process(const char *path, const char *argv0, const char *msg);
 pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
-                                          int duration_sec, int *out_count);
+                                          int duration_sec, int sem_tourists, int *out_count);
 
 void wait_for_pids(pid_t *pids, int count);
 void* child_thread_fn(void *arg);

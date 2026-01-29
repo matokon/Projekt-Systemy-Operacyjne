@@ -16,6 +16,7 @@ union semun {
     unsigned short *array;
 };
 
+/* Tworzy prywatną kolejkę wiadomości System V. */
 int ipc_create_queue(void) {
     int qid = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
     if (qid == -1) {
@@ -27,6 +28,7 @@ int ipc_create_queue(void) {
 
 
 
+/* Zapisuje qid kolejki biletowej do env. */
 void ipc_set_env_qid(int qid) {
     char buf[32];
     snprintf(buf, sizeof(buf), "%d", qid);
@@ -36,6 +38,7 @@ void ipc_set_env_qid(int qid) {
     }
 }
 
+/* Pobiera qid kolejki biletowej z env. */
 int ipc_get_qid_from_env(void) {
     const char *s = getenv(IPC_ENV_QID);
     if (!s || !*s) {
@@ -45,6 +48,7 @@ int ipc_get_qid_from_env(void) {
     return (int)strtol(s, NULL, 10);
 }
 
+/* Usuwa kolejkę wiadomości. */
 int ipc_destroy_queue(int qid) {
     if (msgctl(qid, IPC_RMID, NULL) == -1) {
         perror("msgctl error(3)");
@@ -53,6 +57,7 @@ int ipc_destroy_queue(int qid) {
     return 0;
 }
 
+/* Tworzy semafor binarny/licznikowy z wartością początkową init_val. */
 int ipc_create_sem(char proj_id, int init_val) {
     (void)proj_id;
     int semid = semget(IPC_PRIVATE, 1, IPC_CREAT | 0666);
@@ -69,6 +74,7 @@ int ipc_create_sem(char proj_id, int init_val) {
     return semid;
 }
 
+/* Zapisuje semafor do env (nazwa w env_name). */
 void ipc_set_env_sem(const char *env_name, int semid) {
     char buf[32];
     snprintf(buf, sizeof(buf), "%d", semid);
@@ -78,6 +84,7 @@ void ipc_set_env_sem(const char *env_name, int semid) {
     }
 }
 
+/* Pobiera semafor z env (nazwa w env_name). */
 int ipc_get_sem_from_env(const char *env_name) {
     const char *s = getenv(env_name);
     if (!s || !*s) {
@@ -87,6 +94,7 @@ int ipc_get_sem_from_env(const char *env_name) {
     return (int)strtol(s, NULL, 10);
 }
 
+/* Usuwa semafor System V. */
 int ipc_destroy_sem(int semid) {
     if (semctl(semid, 0, IPC_RMID) == -1) {
         perror("semctl error(7)");
@@ -95,6 +103,7 @@ int ipc_destroy_sem(int semid) {
     return 0;
 }
 
+/* Operacja P na semaforze (sem_op = -1), odporna na EINTR. */
 int ipc_sem_wait(int semid) {
     struct sembuf op;
     op.sem_num = 0;
@@ -108,6 +117,7 @@ int ipc_sem_wait(int semid) {
     }
 }
 
+/* Operacja V na semaforze (sem_op = +1), odporna na EINTR. */
 int ipc_sem_post(int semid) {
     struct sembuf op;
     op.sem_num = 0;
@@ -121,44 +131,71 @@ int ipc_sem_post(int semid) {
     }
 }
 
+/* Wysyła komunikat biletowy (blokująco). */
 int ipc_send(int qid, const ticket_msg_t *m) {
     for (;;) {
         if (msgsnd(qid, m, TICKET_MSGSZ, 0) == 0) return 0;
         if (errno == EINTR) continue;
-        perror("msgsnd error(10)");
+        if (errno == EIDRM || errno == EINVAL) return -1; /* kolejka nie istnieje */
+        perror("msgsnd error");
         return -1;
     }
 }
 
+/* Wysyła komunikat biletowy w trybie IPC_NOWAIT. */
+int ipc_send_nowait(int qid, const ticket_msg_t *m) {
+    for (;;) {
+        if (msgsnd(qid, m, TICKET_MSGSZ, IPC_NOWAIT) == 0) return 0;
+        if (errno == EINTR) continue;
+        return -1; /* caller obsłuży EAGAIN/EIDRM itp. */
+    }
+}
+
+/* Odbiera komunikat biletowy danego typu, opcjonalnie z flagami. */
 int ipc_recv(int qid, long mtype, ticket_msg_t *m, int flags) {
     for (;;) {
         ssize_t r = msgrcv(qid, m, TICKET_MSGSZ, mtype, flags);
         if (r >= 0) return (int)r;
         if (errno == EINTR) continue;
-        perror("msgrcv error(11)");
+        if (errno == ENOMSG || errno == EIDRM || errno == EINVAL) return -1;
+        perror("msgrcv error");
         return -1;
     }
 }
 
+/* Wysyła komunikat peronowy (blokująco). */
 int ipc_send_platform(int qid, const platform_msg_t *m) {
     for (;;) {
         if (msgsnd(qid, m, PLATFORM_MSGSZ, 0) == 0) return 0;
         if (errno == EINTR) continue;
-        perror("msgsnd(platform) error(12)");
+        if (errno == EIDRM || errno == EINVAL) return -1; /* kolejka nie istnieje */
+        perror("msgsnd(platform) error");
         return -1;
     }
 }
 
+/* Wysyła komunikat peronowy w trybie IPC_NOWAIT. */
+int ipc_send_platform_nowait(int qid, const platform_msg_t *m) {
+    for (;;) {
+        if (msgsnd(qid, m, PLATFORM_MSGSZ, IPC_NOWAIT) == 0) return 0;
+        if (errno == EINTR) continue;
+        return -1; /* caller obsłuży EAGAIN/EIDRM itp. */
+    }
+}
+
+/* Odbiera komunikat peronowy danego typu, opcjonalnie z flagami. */
 int ipc_recv_platform(int qid, long mtype, platform_msg_t *m, int flags) {
     for (;;) {
         ssize_t r = msgrcv(qid, m, PLATFORM_MSGSZ, mtype, flags);
         if (r >= 0) return (int)r;
         if (errno == EINTR) continue;
-        perror("msgrcv(platform) error(13)");
+        if (errno == ENOMSG || errno == EIDRM || errno == EINVAL) return -1;
+        perror("msgrcv(platform) error");
         return -1;
     }
 }
 
+/* Tworzy segment pamięci dzielonej o podanym rozmiarze. */
 int ipc_create_shm(size_t size) {
     int shmid = shmget(IPC_PRIVATE, size, IPC_CREAT | 0666);
     if (shmid == -1) {
@@ -168,6 +205,7 @@ int ipc_create_shm(size_t size) {
     return shmid;
 }
 
+/* Dołącza się do segmentu shm. */
 void* ipc_attach_shm(int shmid) {
     void *addr = shmat(shmid, NULL, 0);
     if (addr == (void*)-1) {
@@ -177,6 +215,7 @@ void* ipc_attach_shm(int shmid) {
     return addr;
 }
 
+/* Odłącza segment shm. */
 int ipc_detach_shm(void *addr) {
     if (shmdt(addr) == -1) {
         perror("shmdt error(16)");
@@ -185,6 +224,7 @@ int ipc_detach_shm(void *addr) {
     return 0;
 }
 
+/* Usuwa segment shm. */
 int ipc_destroy_shm(int shmid) {
     if (shmctl(shmid, IPC_RMID, NULL) == -1) {
         perror("shmctl(IPC_RMID) error(16)");

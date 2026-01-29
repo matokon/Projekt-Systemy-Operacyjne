@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
+#include <errno.h>
 #include <pthread.h>
 
 #include "simulation.h"
@@ -10,11 +11,29 @@
 #include "ipc.h"
 #include "tourist_utils.h"
 
+/* Global: semafor kredytów aktywnych turystów (zwalniany przy wyjściu). */
+static int g_sem_tourists = -1;
+
+/* Zwraca kredyt turysty do semafora przy zakończeniu procesu. */
+static void release_tourist_slot(void) {
+    if (g_sem_tourists >= 0) {
+        ipc_sem_post(g_sem_tourists);
+    }
+}
+/*cykl zycia turysty*/ 
 int main(void) {
     srand(time(NULL) ^ getpid());
 
-    if ((rand() % 100) < 20) {
-        printf(CLR_RED_B"    TURYSTA %d: rezygnuje z kolejki\n" RESET, getpid());
+    g_sem_tourists = tourist_get_env_int(IPC_ENV_SEM_TOURISTS);
+    atexit(release_tourist_slot);
+
+    // if ((rand() % 100) < 20) {
+    //     printf(CLR_RED_B"    TURYSTA %d: rezygnuje z kolejki\n" RESET, getpid());
+    //     return 0;
+    // }
+
+    if (sim_is_closed()) {
+        printf(CLR_RED_B"    TURYSTA %d: peron zamkniety, wychodze\n" RESET, getpid());
         return 0;
     }
 
@@ -43,29 +62,29 @@ int main(void) {
     printf(CLR_GREEN"    TURYSTA %d: ide do kasy (qid=%d) VIP=%d age=%d biker=%d children=%d tickets=%d disc_tickets=%d\n" RESET,
            getpid(), qid, is_vip, age, is_biker, children_cnt, req.tickets_nbr, req.discount_tickets_nbr);
 
-    if (ipc_send(qid, &req) < 0) return 1;
+    if (ipc_send_nowait(qid, &req) < 0) {
+        if (errno == EAGAIN) {
+            printf(CLR_RED_B"    TURYSTA %d: kolejka biletowa pelna, rezygnuje\n" RESET, getpid());
+            return 0;
+        }
+        return 1;
+    }
 
     ticket_msg_t res;
     memset(&res, 0, sizeof(res));
     if (ipc_recv(qid, (long)getpid(), &res, 0) < 0) return 1;
 
     if (res.status == ST_OK) {
-        int ride_count = 0;
-        for (;;) {
-            int gate_tokens = tourist_do_lower_gate(res.pass_id, res.assigned_pass, res.valid_until,
-                                                    sem_inside, sem_gate4, group_size);
-            if (gate_tokens <= 0) break;
+        int gate_tokens = tourist_do_lower_gate(res.pass_id, res.assigned_pass, res.valid_until,
+                                                sem_inside, sem_gate4, group_size);
+        if (gate_tokens > 0) {
             int plat = tourist_do_platform_stage(res.pass_id, is_biker, is_vip, group_size,
                                                  platform_qid, sem_inside, sem_gate3);
-            if (plat != 0) break;
-            if (tourist_do_upper_exit(is_biker, sem_exit2) < 0) return 1;
-            ride_count++;
-            printf(CLR_GREEN"    TURYSTA %d: pass_id=%u zjazd #%d pass_type=%d discount=%d%%\n" RESET,
-                   getpid(), res.pass_id, ride_count, res.assigned_pass, res.discount_applied);
-
-            if (res.assigned_pass == PASS_SINGLE) break;
-            if (sim_now() > res.valid_until) break;
-            // usleep(200 * 1000);
+            if (plat == 0) {
+                if (tourist_do_upper_exit(is_biker, sem_exit2) < 0) return 1;
+                printf(CLR_GREEN"    TURYSTA %d: pass_id=%u zjazd #1 pass_type=%d discount=%d%%\n" RESET,
+                       getpid(), res.pass_id, res.assigned_pass, res.discount_applied);
+            }
         }
     } else {
         printf(CLR_RED_B"    TURYSTA %d: odmowa status=%d\n" RESET, getpid(), res.status);

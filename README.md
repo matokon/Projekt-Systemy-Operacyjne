@@ -1,13 +1,21 @@
 # Kolej linowa - symulacja procesow i IPC
 
-Symulacja dzialania kolei krzeselkowej w sezonie letnim. Program odwzorowuje turystow (piesi i rowerzysci), sprzedaz biletow i karnetow, bramki stacji, peron z doborem skladu krzeselek, zatrzymanie i wznowienie kolei oraz raport z przejazdow.
+## Nowe mechanizmy po konsultacjach (stabilność IPC)
+- **Semafor kredytowy turystów (`sem_tourists`, 200 slotów)**: generator bierze token przed forkiem, turysta oddaje przy wyjściu (`atexit`). Zapobiega lawinie procesów i zapychaniu kolejek bez żadnych sleepów.
+- **Łagodne zamykanie peronu**: `employee1` po `PLAT_SHUTDOWN` budzi wszystkie semafory (bramki, limity, krzesła, wyjścia) i przez ~0.5 s drenuje kolejkę peronu, odsyłając spóźnionym `PLAT_SHUTDOWN` w trybie `IPC_NOWAIT`.
+- **Nieblokujące sendy do kolejek (IPC_NOWAIT)**: turysta rezygnuje, gdy kolejka biletowa/peronowa jest pełna zamiast się blokować; brak wiszących `msgsnd`.
+- **Timeouty po stronie turystów**: oczekiwanie na odpowiedź peronu z limitem czasu (5 s) i zwrotem semaforów, żeby nie blokować strefy inside.
+- **Porządki w logach**: ciche traktowanie ENOMSG/EIDRM/EINVAL w IPC, brak spamujących perrorów po zamknięciu.
+
+Symulacja nadal odwzorowuje kolej krzesełkową z VIP-ami, dziećmi, rowerzystami, STOP/WZNOWIENIE itp., ale powyższe zmiany eliminują zwisy i przecieki kolejek.
 
 ## 1. Srodowisko i narzedzia
 
-- Jezyk: C
-- Kompilator: GCC
-- Budowanie: GNU Make
-- Edytor: VS Code
+- System operacyjny: Windows 11 + WSL2 (Ubuntu 24.04.3 LTS)
+- Język: C11
+- Kompilator: GCC (toolchain Ubuntu)
+- Zarządzanie kompilacją: Makefile / GNU Make
+- Edytor: VS Code (setup WSL)
 
 ## 2. Budowanie i uruchomienie
 
@@ -57,11 +65,10 @@ Parametr `stop_once`:
 
 ### `src/main.c`
 - Parsuje Tp/Tk (i stop_once), sprawdza zakres, ustawia czas startu.
-- Tworzy kolejki, semafory (bramki 4/3, limit N, 36 krzesel, 2 wyjscia, mutex shm) i pamiec dzielona dla kolei; wrzuca identyfikatory do env dla potomnych.
-- Inicjalizuje stan kolei w shm (ring 72 krzesel, liczniki, pid pracownikow).
-- Czyści `report.txt` na starcie.
-- Uruchamia procesy: kasjer, pracownik1, pracownik2, generator turystow (spawn w petli przez Tp..Tk).
-- Po Tk wysyla sygnal zamkniecia peronu, czeka az kolej sie oprozni, sleep 3 s, wysyla shutdown do kasjera/peronu, zabija employee2, czeka na dzieci, generuje podsumowanie w `report.txt`, sprzata IPC.
+- Tworzy kolejki, semafory (bramki 4/3, limit N, 36 krzesel, 2 wyjscia, mutex shm, kredyt turystów 200) i pamiec dzielona; publikuje je w ENV.
+- Inicjalizuje stan kolei w shm (ring 72 krzesel, liczniki, pid pracownikow), czyści `report.txt`.
+- Uruchamia kasjera, pracownikow, generator turystow (spawn przez czas Tk-Tp z kontrolą sem_tourists).
+- Po Tk: wysyła `PLAT_SHUTDOWN`, czeka na opróżnienie krzeseł, wysyła shutdown do kasy/peronu (z krótkimi timeoutami na ACK), ubija employee2, czeka na procesy, generuje raport, sprząta IPC.
 
 ### `src/cashier.c`
 - Slucha kolejki biletowej; kazdy request ma pid, wiek, VIP, rowerzysta, liczbe biletow (w tym ulgowych).
@@ -70,39 +77,39 @@ Parametr `stop_once`:
 - Odsyla wynik do pid turysty przez msgrcv/msgrcv z mtype=pid.
 
 ### `src/employee1.c`
-- Ustawia w shm swoje pid, czeka na pid pracownika2.
-- Obsluguje kolejke peronu: odbiera z `platform_qid` z priorytetem VIP (msgrcv na ujemny mtype), wpuszcza tylko do Tk lub odrzuca po zamknieciu.
-- Kolejkuje rowerzystow i grupy pieszych (max 3 osoby: dorosly+2 dzieci) i probuje formowac sklady krzeselek: 2 rowery; 1 rower + 2 pieszych; 4 pieszych. Przy rezerwacji zajmuje semafor krzeselek (36) i wpisuje pids do ringu w shm.
-- Sygnaly: SIGUSR1 zatrzymuje formowanie grup, SIGUSR2 wznawia; tryb `stop_once=1` po 5 s wysyla STOP, po ~9 s WZNOWIENIE.
-- Na zamkniecie (PLAT_SHUTDOWN) fluszuje oczekujacych z odmowa i konczy.
+- Rejestruje PID w shm, czeka na PID emp2.
+- Obsługuje kolejkę peronu (priorytet VIP): wpuszcza do Tk, po Tk odsyła `PLAT_SHUTDOWN`.
+- Kolejkuje rowerzystów i pieszych, formuje składy (2 rowery / 1 rower+2 pieszych / 4 pieszych), rezerwuje miejsca w shm (limit 36).
+- Sygnały STOP/WZNOWIENIE (SIGUSR1/2), tryb `stop_once` (pauza po 5 s, wznowienie po ~9 s).
+- Na `PLAT_SHUTDOWN`: budzi wszystkie semafory, flushuje oczekujących, drenuje kolejkę ~0.5 s w trybie IPC_NOWAIT i wysyła ACK.
 
 ### `src/employee2.c`
-- Ustawia w shm swoje pid, czeka na pid pracownika1.
-- Reaguje na SIGUSR1 (STOP) i SIGUSR2 (WZNOWIENIE); przyjmuje handshake i wysyla potwierdzenie do drugiego pracownika.
-- Symuluje przejazd krzesel: co 2 s zdejmuje jedno krzeselko z ringu (head++), zwalnia semafor krzeselek, az do zatrzymania.
+- Rejestruje PID w shm, czeka na PID emp1.
+- Sygnały STOP/WZNOWIENIE z handshake.
+- Opróżnia krzesła z ringu (head++, zwalnia semafor krzeseł); zatrzymuje się na sygnał/koniec.
 
 ### `src/tourist.c`
-- 20% turystow rezygnuje od razu.
-- Tworzy ewentualne dzieci (dodatkowe bilety ulgowe, max 2, wtedy turysta nie jest rowerzysta).
-- Wysyla prosbe do kasjera (kolejka msg), czeka na odp. z pass_id i `valid_until`.
-- Etapy: dolne bramki (semafory: limit N i 4 bramki, log do `report.txt`), peron (wysylka prosby, priorytet VIP, po akceptacji log, zwolnienie limitu N), wyjazd u gory (semafor 2 pasy, log).
-- Petla przejazdow: jednorazowy konczy po 1, czasowe/dzienne jezdza do `valid_until` lub Tk.
+- Pobiera kredyt z `sem_tourists` (przed forkiem), oddaje przy wyjściu (`atexit`).
+- Losuje dzieci (max 2); wtedy wyłącza rower.
+- Wysyła żądanie do kasy (IPC_NOWAIT — rezygnacja gdy pełna), czeka na odpowiedź.
+- Etapy: dolne bramki (limit N + 4 bramki), peron (PLAT_REQ z timeoutem, priorytet VIP), górne wyjście (2 pasy). Loguje do `report.txt`.
+- Jednorazowy przejazd (po zmianach: jeden zjazd i koniec procesu).
 
 ### `src/ipc.c`
-- Wrappery na msgget/msgsnd/msgrcv/msgctl, semget/semctl/semop (wait/post), shmget/shmat/shmdt/shmctl, plus helpery do env.
+- Wrappery na IPC: kolejki (blokujące i IPC_NOWAIT), semafory (wait/post), shm; helpery ENV; ciche ENOMSG/EIDRM/EINVAL po zamknięciu.
 
 ### `src/platform_queue.c`
-- Bufory na oczekujacych: rowerzysci osobno, piesi z rozmiarem grupy (1-3).
-- Algorytm doboru: najpierw 2 rowery; potem 1 rower + suma pieszych =2; potem suma pieszych =4. Rezerwacja krzeselka (semafory krzesel/mutex shm), wpisy pidow do ringu, odpowiedzi PLAT_RES do kazdego pid.
+- Bufory oczekujących: rowerzyści osobno, piesi z rozmiarem grupy.
+- Algorytm: 2 rowery -> 1 rower + 2 pieszych -> 4 pieszych. Rezerwacja miejsca (sem krzeseł, mutex shm) i wysyłka PLAT_RES.
 
 ### `src/utils/tourist_utils.c`
-- Bramki dolne: sprawdza Tk/valid_until, rezerwuje semaforem limit N (liczy dzieci), semafor 4 bramek, loguje do `report.txt`.
-- Peron: wysyla PLAT_REQ, czeka na odp., loguje wejscie, zwalnia limit N po przejsciu.
-- Wyjscie gorne: semafor 2 pasow wyjscia, loguje, dla rowerzystow dodaje czas zjazdu T1/T2/T3.
+- Bramki dolne: weryfikuje ważność karnetu, rezerwuje limit N i gate4, loguje.
+- Peron: PLAT_REQ (IPC_NOWAIT, timeout 5 s), w razie rezygnacji oddaje sem_inside; loguje przejście.
+- Wyjście górne: sem_exit2 (2 pasy), loguje; helpery ENV/log/losowania dzieci.
 
 ### `src/utils/main_utils.c`
-- Pomocnicze set_env dla semaforow/liczb, cleanup zasobow IPC.
-- `generate_report`: czyta `report.txt`, zlicza wjazdy na peron (`gate=platform`) per pass_id i dopisuje podsumowanie na koniec pliku.
+- Setenvy dla semaforów/liczb, cleanup IPC (kolejki, semy, shm).
+- `generate_report`: zlicza wjazdy na peron i dopisuje podsumowanie.
 
 ### `include/*.h`
 - Struktury, stale, prototypy funkcji, klucze IPC i zmienne srodowiskowe.
@@ -131,62 +138,21 @@ Parametr `stop_once`:
 
 ## 6. Logi i raport
 
-- `report.txt` zawiera pelny log przejsc przez bramki (pass_id + czas + gate).
-- Na koncu pliku dopisywane jest podsumowanie liczby przejazdow na karnet (gate=platform).
+- `report.txt` zawiera log przejść przez bramki (pass_id + czas + gate).
+- Na końcu pliku dopisywane jest podsumowanie liczby przejazdów na karnet (gate=platform).
 
-## 7. Testy
+## 7. Testy (manualne)
 
-Testy wykonywane recznie w WSL, build przez `make`.
+- Poprawne składy i limit 36 miejsc – kontrolowane w `platform_try_form_groups` + semafor krzeseł, zwalniany w `employee2`.
+- Natychmiastowe zatrzymanie/wznowienie – sygnały SIGUSR1/2 między pracownikami, opcjonalny `stop_once`.
+- VIP przed zwykłymi – peron odbiera z priorytetem VIP (mtype ujemny).
+- Sprzątanie zasobów – `cleanup_ipc` usuwa kolejki/semafory/shm; po zakończeniu `ipcs` puste.
 
-- Czy program nigdy nie usadzi na jednym krzesełku więcej osób niż pozwalają zasady?
-Nie, jest to obsłużone w funkcji:
- [platform_try_form_groups – linie 122-171](src/platform_queue.c#L122-L171).
- 
+## 8. Funkcje wymagane przez projekt (gdzie szukać)
 
-- Czy kolej natychmiast zatrzymuje ruch krzesełek, nie wpuszcza nowych osób na peron?
-Tak, pracownicy komunikują się pomiędzy sobą oraz natychmiast zatrzymują ruch koleji(po 9sek go wznawiają):
- [employee1 – linie 18-79](src/employee1.c#L18-L79) oraz [employee2 – linie 10-73](src/employee2.c#L10-L73).
-
-
-- Czy VIPy przechodzą do bramek przed zwykłą kolejką?
-Tak:
- [employee1 – linie 123-139](src/employee1.c#L123-L139).
-
-
-- Czy pracownicy wstrzymają wpuszczanie ludzi jeżeli na koleji bedzie 36 osob?
-Tak, jest to obsłużone za pomocą semafora który nie dopuszcza do sytuacji by na koleji bylo wiecej niz 36 osob:
- [reserve_seat – linie 108-118](src/platform_queue.c#L108-L118), zwolnienie przy zjeździe w [employee2 – linie 102-110](src/employee2.c#L102-L110), semafor inicjalizowany na 36 w [main – linie 34-43](src/main.c#L34-L43).
-
-- Czy program poprawnie zakończył działanie, czy nie pozostawił żadnych procesów zombie i czy wątki/procesy są zakończone?
-Sprzątanie IPC po zakończeniu: `cleanup_ipc` usuwa kolejki/semafory/shm [main_utils.c – linie 27-41](src/utils/main_utils.c#L27-L41), wywołanie na końcu `main` po wygenerowaniu raportu.
-Jak widać na zdjęciu, brak jakichkolwiek procesów zombie:
-![alt text](image-2.png)
-
-## 8. Funkcje wymagane przez projekt (przyklady uzycia)
-
-- Tworzenie procesow:
-  - [fork() – linia 10](src/utils/process_utils.c#L10)
-  - [execl() – linia 15](src/utils/process_utils.c#L15)
-  - [spawn_processes_for_seconds_collect – linie 22-69](src/utils/process_utils.c#L22-L69).
-  - [waitpid() – linia 74](src/utils/process_utils.c#L74)
-- Obsluga sygnalow:
-  - [kill() – pierwsze użycie linia 36](src/employee1.c#L36)
-  - [signal() – linia 45](src/employee2.c#L45)
-- Kolejki komunikatow:
-  - [msgget() – linia 20](src/ipc.c#L20)
-  - [msgsnd() – linia 134](src/ipc.c#L134)
-  - [msgrcv() – linia 143](src/ipc.c#L143)
-  - [msgctl() – linia 57](src/ipc.c#L57)
-- Semafory:
-  - [semget() – linia 66](src/ipc.c#L66)
-  - [semctl() – linia 73](src/ipc.c#L73)
-  - [semop() – linia 112](src/ipc.c#L112)
-- Pamiec dzielona:
-  - [shmget() – linia 171](src/ipc.c#L171)
-  - [shmat() – linia 180](src/ipc.c#L180)
-  - [shmdt() – linia 189](src/ipc.c#L189)
-  - [shmctl() – linia 197](src/ipc.c#L197)
-- Pliki (logi/raport):
-  - [fopen() – linia 12](src/utils/tourist_utils.c#L12)
-  - [fclose() – linia 26](src/utils/tourist_utils.c#L26)
-  - [fprintf() – linia 84](src/utils/main_utils.c#L84)
+- Tworzenie procesów: `fork`/`execl` i `waitpid` w [process_utils.c](src/utils/process_utils.c#L10-L117); pętlowy spawn w [spawn_processes_for_seconds_collect](src/utils/process_utils.c#L25-L80).
+- Sygnały: obsługa `kill`/`signal` w [employee1.c](src/employee1.c#L58-L125) i [employee2.c](src/employee2.c#L17-L80).
+- Kolejki komunikatów: `msgget`, `msgsnd`, `msgrcv`, `msgctl` w [ipc.c](src/ipc.c#L20-L196).
+- Semafory: `semget`, `semctl`, `semop` (wait/post) w [ipc.c](src/ipc.c#L60-L133).
+- Pamięć dzielona: `shmget`, `shmat`, `shmdt`, `shmctl` w [ipc.c](src/ipc.c#L198-L233).
+- Pliki/raporty: `fopen`/`fclose` w [tourist_utils.c](src/utils/tourist_utils.c#L14-L31), `fprintf` w [main_utils.c](src/utils/main_utils.c#L76-L106).

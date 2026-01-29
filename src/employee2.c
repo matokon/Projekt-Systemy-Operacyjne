@@ -14,11 +14,13 @@ static volatile sig_atomic_t g_initiator = 0;
 static volatile sig_atomic_t g_sent_ack = 0;
 static volatile sig_atomic_t g_other_pid = 0;
 
+/* SIGTERM/SIGINT – sygnalizuje zakończenie pętli emp2. */
 static void handle_term(int sig) {
     (void)sig;
     g_stop = 1;
 }
 
+/* SIGUSR1 – pauza emp2 inicjowana przez emp1. */
 static void on_sigusr1(int sig) {
     (void)sig;
     g_stopped = 1;
@@ -27,6 +29,7 @@ static void on_sigusr1(int sig) {
     printf(CLR_BLUE"    Pracownik2 %d: STOP (signal1)\n" RESET, getpid());
 }
 
+/* SIGUSR2 – wznowienie emp2 / potwierdzenie stop_once. */
 static void on_sigusr2(int sig) {
     (void)sig;
     g_stopped = 0;
@@ -41,6 +44,7 @@ static void on_sigusr2(int sig) {
     }
 }
 
+/* Rejestruje sygnały i zapisuje PID emp2 do shmem (chronione sem_shm). */
 static void init_stop_signals(cablecar_t *cablecar, int sem_shm) {
     signal(SIGTERM, handle_term);
     signal(SIGINT, handle_term);
@@ -51,9 +55,10 @@ static void init_stop_signals(cablecar_t *cablecar, int sem_shm) {
     ipc_sem_post(sem_shm);
 }
 
+/* Czeka aż emp1 zapisze swój PID do shmem. */
 static void wait_for_other_pid(cablecar_t *cablecar, int sem_shm) {
-    const int max_tries = 30;
-    for (int i = 0; i < max_tries; i++) {
+    /* Blokujące czekanie na PID emp1 w shmem – bez timeoutu/logów. */
+    for (;;) {
         ipc_sem_wait(sem_shm);
         pid_t other = cablecar->emp1_pid;
         ipc_sem_post(sem_shm);
@@ -61,12 +66,11 @@ static void wait_for_other_pid(cablecar_t *cablecar, int sem_shm) {
             g_other_pid = other;
             return;
         }
-        // sleep(1);
+        sched_yield();
     }
-    fprintf(stderr, "Pracownik2 %d: nie znaleziono PID pracownika1 (timeout)\n", getpid());
-    exit(1);
 }
 
+/* Próbuje wznowić stop_once po ~9s, wysyłając SIGUSR2 do emp1. */
 static void maybe_resume(time_t stop_since) {
     if (!g_stopped || !g_initiator || g_await_ack) return;
     if (stop_since <= 0 || time(NULL) - stop_since < 9) return;
@@ -75,6 +79,7 @@ static void maybe_resume(time_t stop_since) {
     kill((pid_t)g_other_pid, SIGUSR2);
 }
 
+/* Emp2: opróżnia kolejkę krzeseł (head++), reaguje na pauzy/terminację. */
 int main() {
     printf(CLR_BLUE"    Pracownik2 Start: %d" RESET "\n", getpid());
 

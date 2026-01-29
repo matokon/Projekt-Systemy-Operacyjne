@@ -8,12 +8,14 @@
 #include "cablecar.h"
 #include "ipc.h"
 
+/* Wynik obsługi wstępnych warunków w kolejce. */
 typedef enum {
     HNDL_OK = 0,
     HNDL_CONTINUE,
     HNDL_BREAK
 } handle_result_t;
 
+/* Odbiera komunikat, reaguje na shutdown/niepoprawne dane. */
 static handle_result_t handle_prechecks(int qid, ticket_msg_t *msg)
 {
 
@@ -48,6 +50,7 @@ static handle_result_t handle_prechecks(int qid, ticket_msg_t *msg)
     return HNDL_OK;
 }
 
+/* Pętla kasjera: odbiera żądania, przydziela bilety, odrzuca po Tk. */
 int main() {
     srand(getpid());
 

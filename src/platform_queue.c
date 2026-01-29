@@ -3,6 +3,7 @@
 #include "ipc.h"
 #include "cablecar.h"
 
+/* Usuwa pieszą grupę spod indeksu, przesuwając resztę tablicy. */
 static void remove_ped_at(ped_group_t *peds, int *peds_n, int idx) {
     if (idx < 0 || idx >= *peds_n) return;
     if (idx < *peds_n - 1) {
@@ -11,6 +12,7 @@ static void remove_ped_at(ped_group_t *peds, int *peds_n, int idx) {
     (*peds_n)--;
 }
 
+/* Szuka kombinacji grup pieszych o sumarycznej liczbie miejsc = target. */
 static int pick_peds_sum(ped_group_t *peds, int peds_n, int target,
                          int *idxs, int *idxs_n) {
     *idxs_n = 0;
@@ -63,6 +65,7 @@ static int pick_peds_sum(ped_group_t *peds, int peds_n, int target,
     return 0;
 }
 
+/* Wysyła PLAT_RES do podanego pid. */
 void platform_send_res(int qid, pid_t pid) {
     platform_msg_t res;
     memset(&res, 0, sizeof(res));
@@ -72,6 +75,7 @@ void platform_send_res(int qid, pid_t pid) {
     ipc_send_platform(qid, &res);
 }
 
+/* Wysyła PLAT_SHUTDOWN do podanego pid (powiadomienie o zamknięciu). */
 void platform_send_shutdown(int qid, pid_t pid) {
     platform_msg_t res;
     memset(&res, 0, sizeof(res));
@@ -81,6 +85,7 @@ void platform_send_shutdown(int qid, pid_t pid) {
     ipc_send_platform(qid, &res);
 }
 
+/* Wysyła PLAT_SHUTDOWN do wszystkich oczekujących w kolejkach i je czyści. */
 void platform_flush_shutdown_waiters(int qid, pid_t *bikers, int *bikers_n,
                                      ped_group_t *peds, int *peds_n) {
     for (int i = 0; i < *bikers_n; i++) platform_send_shutdown(qid, bikers[i]);
@@ -89,6 +94,7 @@ void platform_flush_shutdown_waiters(int qid, pid_t *bikers, int *bikers_n,
     *peds_n = 0;
 }
 
+/* Kolejkuje zgłoszenie: rowerzystów do listy bikers, pieszych do peds. */
 void platform_enqueue_request(int is_biker, pid_t pid, int group_size,
                               pid_t *bikers, int *bikers_n,
                               ped_group_t *peds, int *peds_n, int max_queue) {
@@ -105,6 +111,7 @@ void platform_enqueue_request(int is_biker, pid_t pid, int group_size,
     }
 }
 
+/* Rezerwuje jedno krzesło w kolei (chronione sem_shm, limitem sem_chairs). */
 static void reserve_seat(cablecar_t *cablecar, int sem_shm, int sem_chairs,
                          pid_t *pids, int pids_n, int group_size) {
     ipc_sem_wait(sem_chairs);
@@ -119,6 +126,7 @@ static void reserve_seat(cablecar_t *cablecar, int sem_shm, int sem_chairs,
     ipc_sem_post(sem_shm);
 }
 
+/* Próbuje zestawiać grupy z oczekujących i rezerwować miejsca, wysyła PLAT_RES. */
 void platform_try_form_groups(int qid, cablecar_t *cablecar, int sem_shm, int sem_chairs,
                               pid_t *bikers, int *bikers_n,
                               ped_group_t *peds, int *peds_n) {

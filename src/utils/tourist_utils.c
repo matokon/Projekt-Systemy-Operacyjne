@@ -3,11 +3,15 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/msg.h>
+#include <sched.h>
 #include "tourist_utils.h"
 #include "simulation.h"
 #include "ipc.h"
 #include "cablecar.h"
 
+/* Dopisuje wiersz do report.txt dla przejścia przez podaną bramkę. */
 static void log_report(uint32_t pass_id, const char *gate) {
     FILE *f = fopen("report.txt", "a");
     if (!f) {
@@ -26,6 +30,14 @@ static void log_report(uint32_t pass_id, const char *gate) {
     fclose(f);
 }
 
+/* Zwraca bieżący czas MONOTONIC w mikrosekundach. */
+static long long now_us(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (long long)ts.tv_sec * 1000000LL + ts.tv_nsec / 1000;
+}
+
+/* Pobiera wartość zmiennej środowiskowej jako int (lub kończy proces). */
 int tourist_get_env_int(const char *name) {
     const char *s = getenv(name);
     if (!s || !*s) {
@@ -34,7 +46,7 @@ int tourist_get_env_int(const char *name) {
     }
     return (int)strtol(s, NULL, 10);
 }
-
+/* Losuje dzieci (max 2), zwiększa bilety/znizki, uruchamia wątki dzieci; zwraca wiek rodzica. */
 int tourist_handle_children(int *tickets_nbr, int *discount_tickets_nbr) {
     int children_cnt = 0;
     int age = rand_age();
@@ -52,7 +64,7 @@ int tourist_handle_children(int *tickets_nbr, int *discount_tickets_nbr) {
     }
     return age;
 }
-
+/* Wypełnia strukturę żądania biletu danymi turysty. */
 void tourist_fill_ticket_request(ticket_msg_t *req, int age, int is_vip, int is_biker,
                                  int tickets_nbr, int discount_tickets_nbr) {
     memset(req, 0, sizeof(*req));
@@ -66,7 +78,7 @@ void tourist_fill_ticket_request(ticket_msg_t *req, int age, int is_vip, int is_
     req->is_biker = is_biker;
     req->requested_pass = rand_pass_or_zero();
 }
-
+/* Obsługa dolnej bramki: weryfikuje ważność, rezerwuje inside/gate4, loguje wejście. */
 int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_until,
                           int sem_inside, int sem_gate4, int group_size) {
     if (sim_is_closed()) {
@@ -84,11 +96,11 @@ int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_unt
     if (ipc_sem_wait(sem_gate4) < 0) return -1;
     log_report(pass_id, "lower");
     ipc_sem_post(sem_gate4);
-    int wait_ms = (rand() % 2000) + 500;
+    // int wait_ms = (rand() % 2000) + 500;
     // usleep((useconds_t)wait_ms * 1000);
     return group_size;
 }
-
+/* Wysyła PLAT_REQ i czeka (z limitem czasu) na PLAT_RES/PLAT_SHUTDOWN; oddaje sem_inside przy rezygnacji. */
 int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int group_size, int platform_qid,
                               int sem_inside, int sem_gate3) {
     platform_msg_t preq;
@@ -100,14 +112,39 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int gr
     preq.group_size = group_size;
     preq.pass_id = pass_id;
 
-    if (ipc_send_platform(platform_qid, &preq) < 0) return -1;
+    if (ipc_send_platform_nowait(platform_qid, &preq) < 0) {
+        if (errno == EAGAIN) {
+            printf(CLR_RED_B"    TURYSTA %d: kolejka peronu pelna, wychodze\n" RESET, getpid());
+        }
+        for (int i = 0; i < (group_size < 1 ? 1 : group_size); i++) ipc_sem_post(sem_inside);
+        return 1;
+    }
 
     platform_msg_t pres;
     memset(&pres, 0, sizeof(pres));
-    if (ipc_recv_platform(platform_qid, (long)getpid(), &pres, 0) < 0) return -1;
+
+    /* Czekamy na odpowiedz z limitem czasu (~5s), aby nie wisiec bez konca. */
+    const long long deadline = now_us() + 5000000;
+    for (;;) {
+        ssize_t r = msgrcv(platform_qid, &pres, PLATFORM_MSGSZ, (long)getpid(), IPC_NOWAIT);
+        if (r >= 0) break;
+        if (errno == EINTR) continue;
+        if (errno == ENOMSG) {
+            if (sim_is_closed() || now_us() >= deadline) {
+                for (int i = 0; i < (group_size < 1 ? 1 : group_size); i++) ipc_sem_post(sem_inside);
+                printf(CLR_RED_B"    TURYSTA %d: brak odpowiedzi peronu, rezygnuje\n" RESET, getpid());
+                return 1;
+            }
+            sched_yield();
+            continue;
+        }  
+        for (int i = 0; i < (group_size < 1 ? 1 : group_size); i++) ipc_sem_post(sem_inside);
+        return 1;
+    }
 
     if (pres.kind == PLAT_SHUTDOWN) {
-        ipc_sem_post(sem_inside);
+        if (group_size < 1) group_size = 1;
+        for (int i = 0; i < group_size; i++) ipc_sem_post(sem_inside);
         printf(CLR_RED_B"    TURYSTA %d: peron zamkniety, wychodze\n" RESET, getpid());
         return 1;
     }
@@ -121,7 +158,7 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int gr
     }
     return 0;
 }
-
+/*Wybiera czas przejazdu*/ 
 static int pick_trail_time(void) {
     int r = rand() % 3;
     if (r == 0) return TRAIL_T1;
@@ -129,6 +166,7 @@ static int pick_trail_time(void) {
     return TRAIL_T3;
 }
 
+/* Przejście górne: pobiera sem_exit2, loguje przejazd, zwalnia sem_exit2. */
 int tourist_do_upper_exit(int is_biker, int sem_exit2) {
     if (ipc_sem_wait(sem_exit2) < 0) return -1;
     // usleep(200 * 1000);
