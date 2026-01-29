@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <time.h>
 #include <sys/msg.h>
-#include <sched.h>
 #include "simulation.h"
 #include "cablecar.h"
 #include "ipc.h"
@@ -126,14 +125,9 @@ int main() {
         platform_msg_t req;
         memset(&req, 0, sizeof(req));
         
-        int recv_flags = closing ? IPC_NOWAIT : 0;
-        int recv_result = ipc_recv_platform(platform_qid, -MT_NORMAL, &req, recv_flags);
+        int recv_result = ipc_recv_platform(platform_qid, -MT_NORMAL, &req, 0);
         
         if (recv_result < 0) {
-            if (recv_result == -2 && closing) {
-                sched_yield();
-                continue;
-            }
             break;
         }
 
