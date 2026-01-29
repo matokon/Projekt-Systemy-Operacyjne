@@ -30,6 +30,7 @@ void set_env_sems(int sem_gate4, int sem_gate3, int sem_inside,
 void cleanup_ipc(int qid, int platform_qid,
                  int sem_gate4, int sem_gate3, int sem_inside,
                  int sem_chairs, int sem_shm, int sem_exit2,
+                 int sem_emp1_ready, int sem_emp2_ready, int sem_work_avail,
                  cablecar_t *cablecar, int shmid) {
     ipc_destroy_queue(qid);
     ipc_destroy_queue(platform_qid);
@@ -38,6 +39,9 @@ void cleanup_ipc(int qid, int platform_qid,
     ipc_destroy_sem(sem_inside);
     ipc_destroy_sem(sem_chairs);
     ipc_destroy_sem(sem_exit2);
+    ipc_destroy_sem(sem_emp1_ready);
+    ipc_destroy_sem(sem_emp2_ready);
+    ipc_destroy_sem(sem_work_avail);
     ipc_detach_shm(cablecar);
     ipc_destroy_shm(shmid);
     ipc_destroy_sem(sem_shm);
@@ -93,14 +97,14 @@ int generate_report(const char *log_path, const char *out_path) {
     return 0;
 }
 
-void wait_for_cablecar_empty(cablecar_t *cablecar, int sem_shm) {
+void wait_for_cablecar_empty(cablecar_t *cablecar, int sem_shm, int sem_work_avail) {
     for (;;) {
         int occ = 0;
         ipc_sem_wait(sem_shm);
         occ = cablecar->occupied;
         ipc_sem_post(sem_shm);
         if (occ == 0) break;
-        // sleep(1);
+        ipc_sem_wait(sem_work_avail);
     }
 }
 

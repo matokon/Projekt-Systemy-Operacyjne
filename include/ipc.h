@@ -99,6 +99,7 @@ void ipc_set_env_sem(const char *env_name, int semid);
 int  ipc_get_sem_from_env(const char *env_name);
 int  ipc_destroy_sem(int semid);
 int  ipc_sem_wait(int semid);
+int  ipc_sem_wait_interruptible(int semid);
 int  ipc_sem_post(int semid);
 
 

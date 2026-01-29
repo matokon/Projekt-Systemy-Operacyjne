@@ -106,7 +106,7 @@ void platform_enqueue_request(int is_biker, pid_t pid, int group_size,
 }
 
 static void reserve_seat(cablecar_t *cablecar, int sem_shm, int sem_chairs,
-                         pid_t *pids, int pids_n, int group_size) {
+                         int sem_work_avail, pid_t *pids, int pids_n, int group_size) {
     ipc_sem_wait(sem_chairs);
     ipc_sem_wait(sem_shm);
     seat_t *seat = &cablecar->seats[cablecar->tail];
@@ -117,10 +117,11 @@ static void reserve_seat(cablecar_t *cablecar, int sem_shm, int sem_chairs,
     cablecar->tail = (cablecar->tail + 1) % 72;
     cablecar->occupied++;
     ipc_sem_post(sem_shm);
+    ipc_sem_post(sem_work_avail);
 }
 
 void platform_try_form_groups(int qid, cablecar_t *cablecar, int sem_shm, int sem_chairs,
-                              pid_t *bikers, int *bikers_n,
+                              int sem_work_avail, pid_t *bikers, int *bikers_n,
                               ped_group_t *peds, int *peds_n) {
     for (;;) {
         if (*bikers_n >= 2) {
@@ -129,7 +130,7 @@ void platform_try_form_groups(int qid, cablecar_t *cablecar, int sem_shm, int se
             memmove(&bikers[0], &bikers[2], (*bikers_n - 2) * sizeof(pid_t));
             *bikers_n -= 2;
             pid_t pids[2] = { p1, p2 };
-            reserve_seat(cablecar, sem_shm, sem_chairs, pids, 2, 2);
+            reserve_seat(cablecar, sem_shm, sem_chairs, sem_work_avail, pids, 2, 2);
             platform_send_res(qid, p1);
             platform_send_res(qid, p2);
             continue;
@@ -147,7 +148,7 @@ void platform_try_form_groups(int qid, cablecar_t *cablecar, int sem_shm, int se
                 for (int i = 0; i < idxs_n; i++) {
                     pids[pids_n++] = peds[idxs[i]].pid;
                 }
-                reserve_seat(cablecar, sem_shm, sem_chairs, pids, pids_n, 1 + 2);
+                reserve_seat(cablecar, sem_shm, sem_chairs, sem_work_avail, pids, pids_n, 1 + 2);
                 platform_send_res(qid, biker_pid);
                 for (int i = 0; i < idxs_n; i++) {
                     platform_send_res(qid, peds[idxs[i]].pid);
@@ -167,7 +168,7 @@ void platform_try_form_groups(int qid, cablecar_t *cablecar, int sem_shm, int se
                 for (int i = 0; i < idxs_n; i++) {
                     pids[pids_n++] = peds[idxs[i]].pid;
                 }
-                reserve_seat(cablecar, sem_shm, sem_chairs, pids, pids_n, 4);
+                reserve_seat(cablecar, sem_shm, sem_chairs, sem_work_avail, pids, pids_n, 4);
                 for (int i = 0; i < idxs_n; i++) {
                     platform_send_res(qid, peds[idxs[i]].pid);
                 }

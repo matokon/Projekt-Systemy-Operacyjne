@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/msg.h>
+#include <sched.h>
 #include "simulation.h"
 #include "cablecar.h"
 #include "ipc.h"
@@ -37,28 +39,24 @@ static void on_sigusr2(int sig) {
     }
 }
 
-static void init_stop_signals(cablecar_t *cablecar, int sem_shm) {
+static void init_stop_signals(cablecar_t *cablecar, int sem_shm, int sem_emp1_ready) {
     signal(SIGUSR1, on_sigusr1);
     signal(SIGUSR2, on_sigusr2);
     ipc_sem_wait(sem_shm);
     cablecar->emp1_pid = getpid();
     ipc_sem_post(sem_shm);
+    ipc_sem_post(sem_emp1_ready);
 }
 
-static void wait_for_other_pid(cablecar_t *cablecar, int sem_shm) {
-    const int max_tries = 30;
-    for (int i = 0; i < max_tries; i++) {
-        ipc_sem_wait(sem_shm);
-        pid_t other = cablecar->emp2_pid;
-        ipc_sem_post(sem_shm);
-        if (other > 0) {
-            g_other_pid = other;
-            return;
-        }
-        sleep(1);
+static void wait_for_other_pid(cablecar_t *cablecar, int sem_shm, int sem_emp2_ready) {
+    ipc_sem_wait(sem_emp2_ready);
+    ipc_sem_wait(sem_shm);
+    g_other_pid = cablecar->emp2_pid;
+    ipc_sem_post(sem_shm);
+    if (g_other_pid <= 0) {
+        fprintf(stderr, "Pracownik1 %d: nie znaleziono PID pracownika2\n", getpid());
+        exit(1);
     }
-    fprintf(stderr, "Pracownik1 %d: nie znaleziono PID pracownika2 (timeout)\n", getpid());
-    exit(1);
 }
 
 static void maybe_stop_once(int stop_once, int *stop_once_done,
@@ -100,8 +98,11 @@ int main() {
     cablecar_t *cablecar = (cablecar_t*)ipc_attach_shm(shmid);
     int sem_shm = ipc_get_sem_from_env(IPC_ENV_SEM_SHM);
     int sem_chairs = ipc_get_sem_from_env(IPC_ENV_SEM_CHAIRS);
+    int sem_emp1_ready = ipc_get_sem_from_env(IPC_ENV_SEM_EMP1_READY);
+    int sem_emp2_ready = ipc_get_sem_from_env(IPC_ENV_SEM_EMP2_READY);
+    int sem_work_avail = ipc_get_sem_from_env(IPC_ENV_SEM_WORK_AVAIL);
 
-    init_stop_signals(cablecar, sem_shm);
+    init_stop_signals(cablecar, sem_shm, sem_emp1_ready);
 
     int stop_once = 0;
     const char *s3 = getenv(IPC_ENV_STOP_ONCE);
@@ -109,7 +110,7 @@ int main() {
     int stop_once_done = 0;
     time_t start_time = time(NULL);
 
-    wait_for_other_pid(cablecar, sem_shm);
+    wait_for_other_pid(cablecar, sem_shm, sem_emp2_ready);
 
 
     enum { MAX_QUEUE = 1024 };
@@ -124,7 +125,17 @@ int main() {
     for (;;) {
         platform_msg_t req;
         memset(&req, 0, sizeof(req));
-        if (ipc_recv_platform(platform_qid, -MT_NORMAL, &req, 0) < 0) break;
+        
+        int recv_flags = closing ? IPC_NOWAIT : 0;
+        int recv_result = ipc_recv_platform(platform_qid, -MT_NORMAL, &req, recv_flags);
+        
+        if (recv_result < 0) {
+            if (recv_result == -2 && closing) {
+                sched_yield();
+                continue;
+            }
+            break;
+        }
 
         maybe_stop_once(stop_once, &stop_once_done, start_time, &stop_since);
         maybe_resume(stop_since);
@@ -169,7 +180,7 @@ int main() {
                                  bikers, &bikers_n, peds, &peds_n, MAX_QUEUE);
         if (!g_stopped) {
             platform_try_form_groups(platform_qid, cablecar, sem_shm, sem_chairs,
-                                     bikers, &bikers_n, peds, &peds_n);
+                                     sem_work_avail, bikers, &bikers_n, peds, &peds_n);
         }
     }
 

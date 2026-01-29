@@ -1,0 +1,13 @@
+# Object files
+*.o
+*.d
+
+# Executables
+projekt
+cashier
+employee1
+employee2
+tourist
+
+# Reports
+report.txt

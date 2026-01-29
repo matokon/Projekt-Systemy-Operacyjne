@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <time.h>
+#include <sched.h>
 #include "simulation.h"
 
 pid_t start_process(const char *path, const char *argv0, const char *msg)
@@ -22,7 +23,7 @@ pid_t start_process(const char *path, const char *argv0, const char *msg)
 pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
                                           int duration_sec, int *out_count)
 {
-    time_t start = time(NULL);
+    int max_tourists = duration_sec * 10;
 
     int cap = 64;
     int n = 0;
@@ -31,15 +32,8 @@ pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
         perror("malloc pids");
         exit(1);
     }
-    int n1 = 5000;
-    while (n--) {
-        if (time(NULL) - start >= duration_sec) break;
 
-        int ms = (rand() % 900) + 100;
-        // usleep((useconds_t)ms * 1000);
-
-        if (time(NULL) - start >= duration_sec) break;
-
+    for (int i = 0; i < max_tourists; i++) {
         pid_t pid = fork();
         if (pid == -1) {
             perror("fork spawn");
@@ -51,7 +45,7 @@ pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
             _exit(1);
         }
 
-        if (n == cap) {
+        if (n >= cap) {
             cap *= 2;
             pid_t *np = (pid_t*)realloc(pids, sizeof(pid_t) * cap);
             if (!np) {
@@ -86,7 +80,7 @@ void wait_for_pids(pid_t *pids, int count) {
 void* child_thread_fn(void *arg) {
     (void)arg;
     for (;;) {
-        // sleep(3600);
+        sched_yield();
     }
     return NULL;
 }

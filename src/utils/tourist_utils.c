@@ -42,9 +42,8 @@ int tourist_handle_children(int *tickets_nbr, int *discount_tickets_nbr) {
         children_cnt++;
         (*tickets_nbr)++;
         (*discount_tickets_nbr)++;
-        printf(CLR_RED_B"    TURYSTA %d: wylosowalem dziecko #%d (age=%d) -> tworze watek dziecka\n" RESET,
+        printf(CLR_RED_B"    TURYSTA %d: wylosowalem dziecko #%d (age=%d)\n" RESET,
                getpid(), children_cnt, age);
-        spawn_child_thread();
         age = rand_age();
     }
     while (age < 8) {
@@ -91,6 +90,14 @@ int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_unt
 
 int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int group_size, int platform_qid,
                               int sem_inside, int sem_gate3) {
+    if (sim_is_closed()) {
+        for (int i = 0; i < group_size; i++) {
+            ipc_sem_post(sem_inside);
+        }
+        printf(CLR_RED_B"    TURYSTA %d: peron zamkniety (po Tk), wychodze\n" RESET, getpid());
+        return 1;
+    }
+    
     platform_msg_t preq;
     memset(&preq, 0, sizeof(preq));
     preq.mtype = is_vip ? MT_VIP_OR_CTRL : MT_NORMAL;
@@ -107,7 +114,9 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int gr
     if (ipc_recv_platform(platform_qid, (long)getpid(), &pres, 0) < 0) return -1;
 
     if (pres.kind == PLAT_SHUTDOWN) {
-        ipc_sem_post(sem_inside);
+        for (int i = 0; i < group_size; i++) {
+            ipc_sem_post(sem_inside);
+        }
         printf(CLR_RED_B"    TURYSTA %d: peron zamkniety, wychodze\n" RESET, getpid());
         return 1;
     }
@@ -115,7 +124,6 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int gr
     if (ipc_sem_wait(sem_gate3) < 0) return -1;
     log_report(pass_id, "platform");
     ipc_sem_post(sem_gate3);
-    if (group_size < 1) group_size = 1;
     for (int i = 0; i < group_size; i++) {
         ipc_sem_post(sem_inside);
     }

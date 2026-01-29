@@ -108,6 +108,17 @@ int ipc_sem_wait(int semid) {
     }
 }
 
+int ipc_sem_wait_interruptible(int semid) {
+    struct sembuf op;
+    op.sem_num = 0;
+    op.sem_op = -1;
+    op.sem_flg = 0;
+    if (semop(semid, &op, 1) == 0) return 0;
+    if (errno == EINTR) return -2;
+    perror("semop(wait) error");
+    return -1;
+}
+
 int ipc_sem_post(int semid) {
     struct sembuf op;
     op.sem_num = 0;
@@ -154,6 +165,7 @@ int ipc_recv_platform(int qid, long mtype, platform_msg_t *m, int flags) {
         ssize_t r = msgrcv(qid, m, PLATFORM_MSGSZ, mtype, flags);
         if (r >= 0) return (int)r;
         if (errno == EINTR) continue;
+        if (errno == ENOMSG) return -2;
         perror("msgrcv(platform) error(13)");
         return -1;
     }

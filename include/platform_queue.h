@@ -15,5 +15,5 @@ void platform_enqueue_request(int is_biker, pid_t pid, int group_size,
                               pid_t *bikers, int *bikers_n,
                               ped_group_t *peds, int *peds_n, int max_queue);
 void platform_try_form_groups(int qid, cablecar_t *cablecar, int sem_shm, int sem_chairs,
-                              pid_t *bikers, int *bikers_n,
+                              int sem_work_avail, pid_t *bikers, int *bikers_n,
                               ped_group_t *peds, int *peds_n);

@@ -41,10 +41,16 @@ int main(int argc, char **argv) {
     int sem_shm = ipc_create_sem('M', 1);
     int sem_chairs = ipc_create_sem('C', 36);
     int sem_exit2 = ipc_create_sem('U', 2);
+    int sem_emp1_ready = ipc_create_sem('1', 0);
+    int sem_emp2_ready = ipc_create_sem('2', 0);
+    int sem_work_avail = ipc_create_sem('W', 0);
     fprintf(stderr, "[MAIN] semids gate4=%d gate3=%d inside=%d shm=%d chairs=%d exit2=%d\n",
             sem_gate4, sem_gate3, sem_inside, sem_shm, sem_chairs, sem_exit2);
     
     set_env_sems(sem_gate4, sem_gate3, sem_inside, sem_chairs, sem_shm, sem_exit2);
+    ipc_set_env_sem(IPC_ENV_SEM_EMP1_READY, sem_emp1_ready);
+    ipc_set_env_sem(IPC_ENV_SEM_EMP2_READY, sem_emp2_ready);
+    ipc_set_env_sem(IPC_ENV_SEM_WORK_AVAIL, sem_work_avail);
 
     int shmid = ipc_create_shm(sizeof(cablecar_t));
     cablecar_t *cablecar = (cablecar_t*)ipc_attach_shm(shmid);
@@ -76,9 +82,6 @@ int main(int argc, char **argv) {
 
     printf(CLR_PINK"[MAIN %d] Wygenerowałem %d turystów" RESET "\n", getpid(), tourist_count);
 
-    wait_for_cablecar_empty(cablecar, sem_shm);
-    // sleep(3);
-
     ticket_msg_t shut;
     memset(&shut, 0, sizeof(shut));
     shut.mtype = MT_VIP_OR_CTRL;
@@ -86,11 +89,11 @@ int main(int argc, char **argv) {
     shut.pid   = getpid();
     ipc_send(qid, &shut);
 
-    ipc_send_platform(platform_qid, &pshut);
-
     ticket_msg_t shut_ack;
     memset(&shut_ack, 0, sizeof(shut_ack));
     ipc_recv(qid, (long)getpid(), &shut_ack, 0);
+
+    ipc_send_platform(platform_qid, &pshut);
 
     platform_msg_t pshut_ack;
     memset(&pshut_ack, 0, sizeof(pshut_ack));
@@ -106,7 +109,8 @@ int main(int argc, char **argv) {
     generate_report("report.txt", "report.txt");
 
     cleanup_ipc(qid, platform_qid, sem_gate4, sem_gate3, sem_inside,
-                sem_chairs, sem_shm, sem_exit2, cablecar, shmid);
+                sem_chairs, sem_shm, sem_exit2, sem_emp1_ready, sem_emp2_ready,
+                sem_work_avail, cablecar, shmid);
 
     printf(CLR_PINK"[MAIN %d] Koniec programu" RESET "\n", getpid());
     return 0;

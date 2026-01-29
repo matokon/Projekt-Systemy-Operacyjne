@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <time.h>
 #include <stdlib.h>
+#include <sched.h>
 #include "simulation.h"
 #include "cablecar.h"
 #include "ipc.h"
@@ -41,7 +42,7 @@ static void on_sigusr2(int sig) {
     }
 }
 
-static void init_stop_signals(cablecar_t *cablecar, int sem_shm) {
+static void init_stop_signals(cablecar_t *cablecar, int sem_shm, int sem_emp2_ready) {
     signal(SIGTERM, handle_term);
     signal(SIGINT, handle_term);
     signal(SIGUSR1, on_sigusr1);
@@ -49,22 +50,18 @@ static void init_stop_signals(cablecar_t *cablecar, int sem_shm) {
     ipc_sem_wait(sem_shm);
     cablecar->emp2_pid = getpid();
     ipc_sem_post(sem_shm);
+    ipc_sem_post(sem_emp2_ready);
 }
 
-static void wait_for_other_pid(cablecar_t *cablecar, int sem_shm) {
-    const int max_tries = 30;
-    for (int i = 0; i < max_tries; i++) {
-        ipc_sem_wait(sem_shm);
-        pid_t other = cablecar->emp1_pid;
-        ipc_sem_post(sem_shm);
-        if (other > 0) {
-            g_other_pid = other;
-            return;
-        }
-        // sleep(1);
+static void wait_for_other_pid(cablecar_t *cablecar, int sem_shm, int sem_emp1_ready) {
+    ipc_sem_wait(sem_emp1_ready);
+    ipc_sem_wait(sem_shm);
+    g_other_pid = cablecar->emp1_pid;
+    ipc_sem_post(sem_shm);
+    if (g_other_pid <= 0) {
+        fprintf(stderr, "Pracownik2 %d: nie znaleziono PID pracownika1\n", getpid());
+        exit(1);
     }
-    fprintf(stderr, "Pracownik2 %d: nie znaleziono PID pracownika1 (timeout)\n", getpid());
-    exit(1);
 }
 
 static void maybe_resume(time_t stop_since) {
@@ -87,19 +84,28 @@ int main() {
     cablecar_t *cablecar = (cablecar_t*)ipc_attach_shm(shmid);
     int sem_shm = ipc_get_sem_from_env(IPC_ENV_SEM_SHM);
     int sem_chairs = ipc_get_sem_from_env(IPC_ENV_SEM_CHAIRS);
+    int sem_emp1_ready = ipc_get_sem_from_env(IPC_ENV_SEM_EMP1_READY);
+    int sem_emp2_ready = ipc_get_sem_from_env(IPC_ENV_SEM_EMP2_READY);
+    int sem_work_avail = ipc_get_sem_from_env(IPC_ENV_SEM_WORK_AVAIL);
 
-    init_stop_signals(cablecar, sem_shm);
-    wait_for_other_pid(cablecar, sem_shm);
+    init_stop_signals(cablecar, sem_shm, sem_emp2_ready);
+    wait_for_other_pid(cablecar, sem_shm, sem_emp1_ready);
 
     time_t stop_since = 0;
     for (; !g_stop;) {
         maybe_resume(stop_since);
 
         if (g_stopped) {
-            // sleep(1);
+            sched_yield();
             continue;
         }
-        // sleep(2);
+        
+        int wait_result = ipc_sem_wait_interruptible(sem_work_avail);
+        if (wait_result < 0) {
+            if (g_stop) break;
+            continue;
+        }
+        
         ipc_sem_wait(sem_shm);
         if (cablecar->occupied > 0 && cablecar->seats[cablecar->head].state == SEAT_OCCUPIED) {
             seat_t *seat = &cablecar->seats[cablecar->head];
