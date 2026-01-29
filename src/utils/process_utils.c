@@ -31,12 +31,12 @@ pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
         perror("malloc pids");
         exit(1);
     }
-
-    while (1) {
+    int n1 = 5000;
+    while (n--) {
         if (time(NULL) - start >= duration_sec) break;
 
         int ms = (rand() % 900) + 100;
-        usleep((useconds_t)ms * 1000);
+        // usleep((useconds_t)ms * 1000);
 
         if (time(NULL) - start >= duration_sec) break;
 
@@ -86,7 +86,7 @@ void wait_for_pids(pid_t *pids, int count) {
 void* child_thread_fn(void *arg) {
     (void)arg;
     for (;;) {
-        sleep(3600);
+        // sleep(3600);
     }
     return NULL;
 }

@@ -65,7 +65,7 @@ int main(void) {
 
             if (res.assigned_pass == PASS_SINGLE) break;
             if (sim_now() > res.valid_until) break;
-            usleep(200 * 1000);
+            // usleep(200 * 1000);
         }
     } else {
         printf(CLR_RED_B"    TURYSTA %d: odmowa status=%d\n" RESET, getpid(), res.status);

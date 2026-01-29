@@ -61,7 +61,7 @@ static void wait_for_other_pid(cablecar_t *cablecar, int sem_shm) {
             g_other_pid = other;
             return;
         }
-        sleep(1);
+        // sleep(1);
     }
     fprintf(stderr, "Pracownik2 %d: nie znaleziono PID pracownika1 (timeout)\n", getpid());
     exit(1);
@@ -96,10 +96,10 @@ int main() {
         maybe_resume(stop_since);
 
         if (g_stopped) {
-            sleep(1);
+            // sleep(1);
             continue;
         }
-        sleep(2);
+        // sleep(2);
         ipc_sem_wait(sem_shm);
         if (cablecar->occupied > 0 && cablecar->seats[cablecar->head].state == SEAT_OCCUPIED) {
             seat_t *seat = &cablecar->seats[cablecar->head];

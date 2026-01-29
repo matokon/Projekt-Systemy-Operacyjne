@@ -100,7 +100,7 @@ void wait_for_cablecar_empty(cablecar_t *cablecar, int sem_shm) {
         occ = cablecar->occupied;
         ipc_sem_post(sem_shm);
         if (occ == 0) break;
-        sleep(1);
+        // sleep(1);
     }
 }
 

@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
     printf(CLR_PINK"[MAIN %d] Wygenerowałem %d turystów" RESET "\n", getpid(), tourist_count);
 
     wait_for_cablecar_empty(cablecar, sem_shm);
-    sleep(3);
+    // sleep(3);
 
     ticket_msg_t shut;
     memset(&shut, 0, sizeof(shut));
