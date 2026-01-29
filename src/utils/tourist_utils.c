@@ -105,7 +105,17 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int gr
     preq.group_size = group_size;
     preq.pass_id = pass_id;
 
-    if (ipc_send_platform(platform_qid, &preq) < 0) return -1;
+    int send_result = ipc_send_platform(platform_qid, &preq);
+    if (send_result < 0) {
+        for (int i = 0; i < group_size; i++) {
+            ipc_sem_post(sem_inside);
+        }
+        if (send_result == -2) {
+            printf(CLR_RED_B"    TURYSTA %d: kolejka peronu pelna, wychodze\n" RESET, getpid());
+            return 1;
+        }
+        return -1;
+    }
 
     platform_msg_t pres;
     memset(&pres, 0, sizeof(pres));

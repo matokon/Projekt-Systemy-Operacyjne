@@ -23,7 +23,7 @@ pid_t start_process(const char *path, const char *argv0, const char *msg)
 pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
                                           int duration_sec, int *out_count)
 {
-    int max_tourists = duration_sec * 10;
+    time_t start = time(NULL);
 
     int cap = 64;
     int n = 0;
@@ -32,8 +32,10 @@ pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
         perror("malloc pids");
         exit(1);
     }
+    int n1 = 5000;
+    while (n1--) {
+        if (time(NULL) - start >= duration_sec) break;
 
-    for (int i = 0; i < max_tourists; i++) {
         pid_t pid = fork();
         if (pid == -1) {
             perror("fork spawn");

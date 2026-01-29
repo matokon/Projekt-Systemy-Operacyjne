@@ -43,7 +43,14 @@ int main(void) {
     printf(CLR_GREEN"    TURYSTA %d: ide do kasy (qid=%d) VIP=%d age=%d biker=%d children=%d tickets=%d disc_tickets=%d\n" RESET,
            getpid(), qid, is_vip, age, is_biker, children_cnt, req.tickets_nbr, req.discount_tickets_nbr);
 
-    if (ipc_send(qid, &req) < 0) return 1;
+    int send_result = ipc_send(qid, &req);
+    if (send_result < 0) {
+        if (send_result == -2) {
+            printf(CLR_RED_B"    TURYSTA %d: kolejka kasy pelna, wychodze\n" RESET, getpid());
+            return 0;
+        }
+        return 1;
+    }
 
     ticket_msg_t res;
     memset(&res, 0, sizeof(res));

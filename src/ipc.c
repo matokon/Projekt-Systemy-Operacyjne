@@ -134,8 +134,9 @@ int ipc_sem_post(int semid) {
 
 int ipc_send(int qid, const ticket_msg_t *m) {
     for (;;) {
-        if (msgsnd(qid, m, TICKET_MSGSZ, 0) == 0) return 0;
+        if (msgsnd(qid, m, TICKET_MSGSZ, IPC_NOWAIT) == 0) return 0;
         if (errno == EINTR) continue;
+        if (errno == EAGAIN) return -2;
         perror("msgsnd error(10)");
         return -1;
     }
@@ -153,8 +154,9 @@ int ipc_recv(int qid, long mtype, ticket_msg_t *m, int flags) {
 
 int ipc_send_platform(int qid, const platform_msg_t *m) {
     for (;;) {
-        if (msgsnd(qid, m, PLATFORM_MSGSZ, 0) == 0) return 0;
+        if (msgsnd(qid, m, PLATFORM_MSGSZ, IPC_NOWAIT) == 0) return 0;
         if (errno == EINTR) continue;
+        if (errno == EAGAIN) return -2;
         perror("msgsnd(platform) error(12)");
         return -1;
     }

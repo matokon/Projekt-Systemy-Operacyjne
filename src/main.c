@@ -77,6 +77,14 @@ int main(int argc, char **argv) {
     pshut.kind = PLAT_SHUTDOWN;
     pshut.pid = getpid();
     ipc_send_platform(platform_qid, &pshut);
+    
+    for (int i = 0; i < tourist_count; i++) {
+        ipc_sem_post(sem_inside);
+        ipc_sem_post(sem_gate4);
+        ipc_sem_post(sem_gate3);
+        ipc_sem_post(sem_exit2);
+    }
+    
     wait_for_pids(tourists, tourist_count);
     free(tourists);
 
