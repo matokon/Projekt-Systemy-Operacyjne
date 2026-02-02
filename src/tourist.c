@@ -13,10 +13,10 @@
 int main(void) {
     srand(time(NULL) ^ getpid());
 
-    if ((rand() % 100) < 20) {
-        printf(CLR_RED_B"    TURYSTA %d: rezygnuje z kolejki\n" RESET, getpid());
-        return 0;
-    }
+    // if ((rand() % 100) < 20) {
+    //     printf(CLR_RED_B"    TURYSTA %d: rezygnuje z kolejki\n" RESET, getpid());
+    //     return 0;
+    // }
 
     int qid = ipc_get_qid_from_env();
     int platform_qid = tourist_get_env_int(IPC_ENV_PLATFORM_QID);
@@ -27,7 +27,8 @@ int main(void) {
 
     int tickets_nbr = 1;
     int discount_tickets_nbr = 0;
-    int age = tourist_handle_children(&tickets_nbr, &discount_tickets_nbr);
+    int age = 20;
+    // tourist_handle_children(&tickets_nbr, &discount_tickets_nbr);
     int children_cnt = tickets_nbr - 1;
 
     int is_vip = rand_vip_1pct();
@@ -43,7 +44,7 @@ int main(void) {
     printf(CLR_GREEN"    TURYSTA %d: ide do kasy (qid=%d) VIP=%d age=%d biker=%d children=%d tickets=%d disc_tickets=%d\n" RESET,
            getpid(), qid, is_vip, age, is_biker, children_cnt, req.tickets_nbr, req.discount_tickets_nbr);
 
-    if (ipc_send(qid, &req) < 0) return 1;
+    if (ipc_send_with_backpressure(qid, &req, 0.7) < 0) return 1;
 
     ticket_msg_t res;
     memset(&res, 0, sizeof(res));
@@ -53,7 +54,7 @@ int main(void) {
         int ride_count = 0;
         for (;;) {
             int gate_tokens = tourist_do_lower_gate(res.pass_id, res.assigned_pass, res.valid_until,
-                                                    sem_inside, sem_gate4, group_size);
+                                                    sem_inside, sem_gate4, group_size, is_vip);
             if (gate_tokens <= 0) break;
             int plat = tourist_do_platform_stage(res.pass_id, is_biker, is_vip, group_size,
                                                  platform_qid, sem_inside, sem_gate3);

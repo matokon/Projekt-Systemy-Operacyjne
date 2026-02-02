@@ -46,19 +46,14 @@ static void init_stop_signals(cablecar_t *cablecar, int sem_shm) {
 }
 
 static void wait_for_other_pid(cablecar_t *cablecar, int sem_shm) {
-    const int max_tries = 30;
-    for (int i = 0; i < max_tries; i++) {
-        ipc_sem_wait(sem_shm);
-        pid_t other = cablecar->emp2_pid;
-        ipc_sem_post(sem_shm);
-        if (other > 0) {
-            g_other_pid = other;
-            return;
-        }
-        sleep(1);
-    }
-    fprintf(stderr, "Pracownik1 %d: nie znaleziono PID pracownika2 (timeout)\n", getpid());
-    exit(1);
+    int sem_ready = ipc_get_sem_from_env(IPC_ENV_SEM_EMP_READY);
+    /* sygnalizuj gotowosc swojego PID */
+    ipc_sem_post(sem_ready);
+    /* czekaj na gotowosc drugiego pracownika */
+    ipc_sem_wait(sem_ready);
+    ipc_sem_wait(sem_shm);
+    g_other_pid = cablecar->emp2_pid;
+    ipc_sem_post(sem_shm);
 }
 
 static void maybe_stop_once(int stop_once, int *stop_once_done,
@@ -118,7 +113,6 @@ int main() {
     int bikers_n = 0;
     int peds_n = 0;
     int closing = 0;
-    int gate_closed = 0;
     time_t stop_since = 0;
 
     for (;;) {
@@ -151,16 +145,15 @@ int main() {
             continue;
         }
 
-        if (closing) {
+        if (!closing && sim_is_closed()) {
+            closing = 1;
+            printf(CLR_CYAN"    Pracownik1 %d: bramki peronu zamkniete (po Tk)\n" RESET, getpid());
+            platform_flush_shutdown_waiters(platform_qid, bikers, &bikers_n, peds, &peds_n);
             platform_send_shutdown(platform_qid, req.pid);
             continue;
         }
 
-        if (sim_is_closed()) {
-            if (!gate_closed) {
-                printf(CLR_CYAN"    Pracownik1 %d: bramki peronu zamkniete (po Tk)\n" RESET, getpid());
-                gate_closed = 1;
-            }
+        if (closing) {
             platform_send_shutdown(platform_qid, req.pid);
             continue;
         }

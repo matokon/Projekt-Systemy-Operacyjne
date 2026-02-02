@@ -14,6 +14,9 @@ typedef enum {
     HNDL_BREAK
 } handle_result_t;
 
+static int should_terminate_after_drain = 0;
+static pid_t shutdown_requester_pid = 0;
+
 static handle_result_t handle_prechecks(int qid, ticket_msg_t *msg)
 {
 
@@ -22,16 +25,10 @@ static handle_result_t handle_prechecks(int qid, ticket_msg_t *msg)
     }
 
     if (msg->kind == MSG_SHUTDOWN) {
-        if (msg->pid > 0) {
-            ticket_msg_t ack;
-            memset(&ack, 0, sizeof(ack));
-            ack.mtype = (long)msg->pid;
-            ack.kind = MSG_SHUTDOWN_ACK;
-            ack.pid = getpid();
-            ipc_send(qid, &ack);
-        }
-        printf(CLR_YELLOW"    Kasjer %d: dostałem SHUTDOWN, kończę" RESET "\n", getpid());
-        return HNDL_BREAK;
+        /* zapamiętaj, ale nie wychodź od razu – najpierw opróżnij kolejkę */
+        should_terminate_after_drain = 1;
+        shutdown_requester_pid = msg->pid;
+        return HNDL_CONTINUE;
     }
 
     if (msg->kind != MSG_TICKET_REQ || msg->pid <= 0 || msg->age < 0 || msg->age > 120) {
@@ -57,6 +54,20 @@ int main() {
     uint32_t next_pass_id = 1;
 
     for (;;) {
+        if (should_terminate_after_drain) {
+            struct msqid_ds ds;
+            if (msgctl(qid, IPC_STAT, &ds) == 0 && ds.msg_qnum == 0) {
+            ticket_msg_t ack;
+            memset(&ack, 0, sizeof(ack));
+            ack.mtype = (long)shutdown_requester_pid;
+            ack.kind = MSG_SHUTDOWN_ACK;
+            ack.pid = getpid();
+            ipc_send(qid, &ack);
+            printf(CLR_YELLOW"    Kasjer %d: kolejka pusta, kończę po SHUTDOWN" RESET "\n", getpid());
+            break;
+        }
+    }
+
         ticket_msg_t msg;
         memset(&msg, 0, sizeof(msg));
 

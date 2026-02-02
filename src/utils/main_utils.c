@@ -30,6 +30,7 @@ void set_env_sems(int sem_gate4, int sem_gate3, int sem_inside,
 void cleanup_ipc(int qid, int platform_qid,
                  int sem_gate4, int sem_gate3, int sem_inside,
                  int sem_chairs, int sem_shm, int sem_exit2,
+                 int sem_q_guard, int sem_pq_guard, int sem_emp_ready,
                  cablecar_t *cablecar, int shmid) {
     ipc_destroy_queue(qid);
     ipc_destroy_queue(platform_qid);
@@ -37,6 +38,9 @@ void cleanup_ipc(int qid, int platform_qid,
     ipc_destroy_sem(sem_gate3);
     ipc_destroy_sem(sem_inside);
     ipc_destroy_sem(sem_chairs);
+    ipc_destroy_sem(sem_q_guard);
+    ipc_destroy_sem(sem_pq_guard);
+    ipc_destroy_sem(sem_emp_ready);
     ipc_destroy_sem(sem_exit2);
     ipc_detach_shm(cablecar);
     ipc_destroy_shm(shmid);
@@ -114,6 +118,7 @@ void cablecar_init(cablecar_t *cablecar)
     cablecar->head = 0;
     cablecar->tail = 0;
     cablecar->occupied = 0;
+    cablecar->vip_waiting = 0;
 
     for (int i = 0; i < 72; i++) {
         cablecar->seats[i].state = SEAT_FREE;

@@ -9,6 +9,9 @@
 #define IPC_ENV_SHM_CABLECAR "CABLECAR_SHM_CABLECAR"
 #define IPC_ENV_SEM_SHM "CABLECAR_SEM_SHM"
 #define IPC_ENV_SEM_CHAIRS "CABLECAR_SEM_CHAIRS"
+#define IPC_ENV_SEM_Q_GUARD "CABLECAR_SEM_Q_GUARD"
+#define IPC_ENV_SEM_PQ_GUARD "CABLECAR_SEM_PQ_GUARD"
+#define IPC_ENV_SEM_EMP_READY "CABLECAR_SEM_EMP_READY"
 #define IPC_ENV_TP "CABLECAR_TP"
 #define IPC_ENV_TK "CABLECAR_TK"
 #define IPC_ENV_START "CABLECAR_START"
@@ -43,6 +46,7 @@ typedef struct {
     int occupied;
     pid_t emp1_pid;
     pid_t emp2_pid;
+    int vip_waiting;      // liczba VIP oczekujących na wejście (priorytet na dolnej stacji)
 } cablecar_t;
 
 void cablecar_init(cablecar_t *cablecar);

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 #include "cablecar.h"
 #include "ipc.h"
 
@@ -45,12 +46,59 @@ int ipc_get_qid_from_env(void) {
     return (int)strtol(s, NULL, 10);
 }
 
+size_t ipc_get_qbytes(int qid) {
+    struct msqid_ds ds;
+    if (msgctl(qid, IPC_STAT, &ds) == -1) {
+        perror("msgctl(IPC_STAT) get_qbytes");
+        return 0;
+    }
+    return (size_t)ds.msg_qbytes;
+}
+
 int ipc_destroy_queue(int qid) {
     if (msgctl(qid, IPC_RMID, NULL) == -1) {
         perror("msgctl error(3)");
         return -1;
     }
     return 0;
+}
+
+int ipc_send_with_backpressure(int qid, const ticket_msg_t *m, double threshold) {
+    if (threshold <= 0.0) threshold = 0.7;
+    if (threshold >= 1.0) threshold = 0.99;
+
+    struct msqid_ds buf;
+    size_t msg_size_bytes = TICKET_MSGSZ + sizeof(long);
+    if (msg_size_bytes == 0) msg_size_bytes = sizeof(long) + 1;
+
+    for (;;) {
+        if (msgctl(qid, IPC_STAT, &buf) == -1) {
+            perror("msgctl(IPC_STAT) backpressure");
+            break;
+        }
+        size_t max_msgs = buf.msg_qbytes / msg_size_bytes;
+        if (max_msgs == 0) max_msgs = 1;
+        if (buf.msg_qnum < (size_t)(threshold * max_msgs)) {
+            break;
+        }
+        usleep(100000);
+    }
+    return ipc_send(qid, m);
+}
+
+int ipc_calc_guard_init(int qid, size_t msgsz_payload) {
+    struct msqid_ds ds;
+    if (msgctl(qid, IPC_STAT, &ds) == -1) {
+        perror("msgctl(IPC_STAT) guard");
+        return 1;
+    }
+    size_t full_msg = msgsz_payload + sizeof(long);
+    if (full_msg == 0) return 1;
+    size_t capacity = ds.msg_qbytes / full_msg;
+    if (capacity == 0) capacity = 1;
+    if (capacity > 1) capacity -= 1;
+    if (capacity > (size_t)INT_MAX) capacity = INT_MAX;
+    return (int)capacity;
 }
 
 int ipc_create_sem(char proj_id, int init_val) {
@@ -95,6 +143,20 @@ int ipc_destroy_sem(int semid) {
     return 0;
 }
 
+static int guard_for_qid(int qid) {
+    const char *s = getenv(IPC_ENV_QID);
+    if (s && *s && (int)strtol(s, NULL, 10) == qid) {
+        const char *g = getenv(IPC_ENV_SEM_Q_GUARD);
+        if (g && *g) return (int)strtol(g, NULL, 10);
+    }
+    s = getenv(IPC_ENV_PLATFORM_QID);
+    if (s && *s && (int)strtol(s, NULL, 10) == qid) {
+        const char *g = getenv(IPC_ENV_SEM_PQ_GUARD);
+        if (g && *g) return (int)strtol(g, NULL, 10);
+    }
+    return -1;
+}
+
 int ipc_sem_wait(int semid) {
     struct sembuf op;
     op.sem_num = 0;
@@ -122,18 +184,25 @@ int ipc_sem_post(int semid) {
 }
 
 int ipc_send(int qid, const ticket_msg_t *m) {
+    int guard = guard_for_qid(qid);
+    if (guard > 0 && ipc_sem_wait(guard) < 0) return -1;
     for (;;) {
         if (msgsnd(qid, m, TICKET_MSGSZ, 0) == 0) return 0;
         if (errno == EINTR) continue;
+        if (guard > 0) ipc_sem_post(guard);
         perror("msgsnd error(10)");
         return -1;
     }
 }
 
 int ipc_recv(int qid, long mtype, ticket_msg_t *m, int flags) {
+    int guard = guard_for_qid(qid);
     for (;;) {
         ssize_t r = msgrcv(qid, m, TICKET_MSGSZ, mtype, flags);
-        if (r >= 0) return (int)r;
+        if (r >= 0) {
+            if (guard > 0) ipc_sem_post(guard);
+            return (int)r;
+        }
         if (errno == EINTR) continue;
         perror("msgrcv error(11)");
         return -1;
@@ -141,18 +210,25 @@ int ipc_recv(int qid, long mtype, ticket_msg_t *m, int flags) {
 }
 
 int ipc_send_platform(int qid, const platform_msg_t *m) {
+    int guard = guard_for_qid(qid);
+    if (guard > 0 && ipc_sem_wait(guard) < 0) return -1;
     for (;;) {
         if (msgsnd(qid, m, PLATFORM_MSGSZ, 0) == 0) return 0;
         if (errno == EINTR) continue;
+        if (guard > 0) ipc_sem_post(guard);
         perror("msgsnd(platform) error(12)");
         return -1;
     }
 }
 
 int ipc_recv_platform(int qid, long mtype, platform_msg_t *m, int flags) {
+    int guard = guard_for_qid(qid);
     for (;;) {
         ssize_t r = msgrcv(qid, m, PLATFORM_MSGSZ, mtype, flags);
-        if (r >= 0) return (int)r;
+        if (r >= 0) {
+            if (guard > 0) ipc_sem_post(guard);
+            return (int)r;
+        }
         if (errno == EINTR) continue;
         perror("msgrcv(platform) error(13)");
         return -1;

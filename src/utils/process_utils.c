@@ -32,8 +32,9 @@ pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
         exit(1);
     }
     int n1 = 5000;
-    while (n--) {
-        if (time(NULL) - start >= duration_sec) break;
+    time_t deadline = start + duration_sec;
+    while (n1--) {
+        if (time(NULL) >= deadline) break;
 
         int ms = (rand() % 900) + 100;
         // usleep((useconds_t)ms * 1000);
@@ -86,7 +87,7 @@ void wait_for_pids(pid_t *pids, int count) {
 void* child_thread_fn(void *arg) {
     (void)arg;
     for (;;) {
-        // sleep(3600);
+        pause();
     }
     return NULL;
 }

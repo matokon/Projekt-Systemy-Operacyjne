@@ -8,6 +8,21 @@
 #include "ipc.h"
 #include "cablecar.h"
 
+static cablecar_t *g_cablecar = NULL;
+static int g_sem_shm = -1;
+
+static void ensure_cablecar_attached(void) {
+    if (g_cablecar && g_sem_shm >= 0) return;
+    const char *s = getenv(IPC_ENV_SHM_CABLECAR);
+    if (!s || !*s) {
+        fprintf(stderr, "Brak %s w env\n", IPC_ENV_SHM_CABLECAR);
+        exit(1);
+    }
+    int shmid = (int)strtol(s, NULL, 10);
+    g_cablecar = (cablecar_t*)ipc_attach_shm(shmid);
+    g_sem_shm = ipc_get_sem_from_env(IPC_ENV_SEM_SHM);
+}
+
 static void log_report(uint32_t pass_id, const char *gate) {
     FILE *f = fopen("report.txt", "a");
     if (!f) {
@@ -68,7 +83,9 @@ void tourist_fill_ticket_request(ticket_msg_t *req, int age, int is_vip, int is_
 }
 
 int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_until,
-                          int sem_inside, int sem_gate4, int group_size) {
+                          int sem_inside, int sem_gate4, int group_size, int is_vip) {
+    ensure_cablecar_attached();
+
     if (sim_is_closed()) {
         printf(CLR_RED_B"    TURYSTA %d: bramki zamkniete (po Tk)\n" RESET, getpid());
         return 1;
@@ -78,12 +95,34 @@ int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_unt
         return 1;
     }
     if (group_size < 1) group_size = 1;
+
+    if (is_vip) {
+        ipc_sem_wait(g_sem_shm);
+        g_cablecar->vip_waiting++;
+        ipc_sem_post(g_sem_shm);
+    } else {
+        for (;;) {
+            ipc_sem_wait(g_sem_shm);
+            int vw = g_cablecar->vip_waiting;
+            ipc_sem_post(g_sem_shm);
+            if (vw == 0) break;
+            usleep(1000);
+        }
+    }
+
     for (int i = 0; i < group_size; i++) {
         if (ipc_sem_wait(sem_inside) < 0) return -1;
     }
     if (ipc_sem_wait(sem_gate4) < 0) return -1;
     log_report(pass_id, "lower");
     ipc_sem_post(sem_gate4);
+
+    if (is_vip) {
+        ipc_sem_wait(g_sem_shm);
+        if (g_cablecar->vip_waiting > 0) g_cablecar->vip_waiting--;
+        ipc_sem_post(g_sem_shm);
+    }
+
     int wait_ms = (rand() % 2000) + 500;
     // usleep((useconds_t)wait_ms * 1000);
     return group_size;

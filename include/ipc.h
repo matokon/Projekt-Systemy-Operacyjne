@@ -78,10 +78,13 @@ typedef struct {
 
 //ipc
 int  ipc_create_queue(void);
+size_t ipc_get_qbytes(int qid);
 void ipc_set_env_qid(int qid);
 int  ipc_get_qid_from_env(void);
+int  ipc_calc_guard_init(int qid, size_t msgsz_payload);
 int  ipc_destroy_queue(int qid);
 int ipc_send(int qid, const ticket_msg_t *m);
+int ipc_send_with_backpressure(int qid, const ticket_msg_t *m, double threshold);
 int ipc_recv(int qid, long mtype, ticket_msg_t *m, int flags);
 
 int ipc_send_platform(int qid, const platform_msg_t *m);
