@@ -177,6 +177,22 @@ void platform_try_form_groups(int qid, cablecar_t *cablecar, int sem_shm, int se
                 continue;
             }
         }
+        /* Fallback: obsłuż pojedynczych pieszych/grupy które nie sumują się do 4.
+         * Gdy nie ma idealnego dopasowania, obsłuż pierwszego pieszego w kolejce
+         * z niepełnym krzesłem (marnując pozostałe miejsca).
+         * To zapobiega deadlockowi gdy są same grupy o rozmiarach nie dających sumy 4.
+         */
+        if (*peds_n > 0 && *bikers_n == 0) {
+            int gs = peds[0].size;
+            if (gs > 0 && gs <= 4) {
+                pid_t ped_pid = peds[0].pid;
+                remove_ped_at(peds, peds_n, 0);
+                pid_t pids[1] = { ped_pid };
+                reserve_seat(cablecar, sem_shm, sem_chairs, pids, 1, gs);
+                platform_send_res(qid, ped_pid);
+                continue;
+            }
+        }
         break;
     }
 }

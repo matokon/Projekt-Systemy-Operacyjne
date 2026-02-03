@@ -29,6 +29,7 @@ pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
 void wait_for_pids(pid_t *pids, int count);
 void* child_thread_fn(void *arg);
 int spawn_child_thread(void);
+void stop_child_threads(void);
 
 static inline int sim_get_tp(void) {
     const char *s = getenv(IPC_ENV_TP);

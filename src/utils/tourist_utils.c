@@ -146,7 +146,9 @@ int tourist_do_platform_stage(uint32_t pass_id, int is_biker, int is_vip, int gr
     if (ipc_recv_platform(platform_qid, (long)getpid(), &pres, 0) < 0) return -1;
 
     if (pres.kind == PLAT_SHUTDOWN) {
-        ipc_sem_post(sem_inside);
+        for (int i = 0; i < group_size; i++) {
+            ipc_sem_post(sem_inside);
+        }
         printf(CLR_RED_B"    TURYSTA %d: peron zamkniety, wychodze\n" RESET, getpid());
         return 1;
     }

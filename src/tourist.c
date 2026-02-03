@@ -27,8 +27,7 @@ int main(void) {
 
     int tickets_nbr = 1;
     int discount_tickets_nbr = 0;
-    int age = 20;
-    // tourist_handle_children(&tickets_nbr, &discount_tickets_nbr);
+    int age = tourist_handle_children(&tickets_nbr, &discount_tickets_nbr);
     int children_cnt = tickets_nbr - 1;
 
     int is_vip = rand_vip_1pct();
@@ -72,5 +71,6 @@ int main(void) {
         printf(CLR_RED_B"    TURYSTA %d: odmowa status=%d\n" RESET, getpid(), res.status);
     }
 
+    stop_child_threads();
     return 0;
 }

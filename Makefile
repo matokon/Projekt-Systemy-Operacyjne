@@ -54,7 +54,7 @@ employee2.o: src/employee2.c include/simulation.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 tourist: tourist.o tourist_utils.o ipc.o data_randomization.o process_utils.o main_utils.o
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ -lpthread
 
 tourist.o: src/tourist.c include/simulation.h include/ipc.h include/tourist_utils.h include/cablecar.h
 	$(CC) $(CFLAGS) -c $< -o $@

@@ -84,10 +84,19 @@ void wait_for_pids(pid_t *pids, int count) {
     }
 }
 
+static volatile int g_child_threads_should_exit = 0;
+static pthread_t *g_child_threads = NULL;
+static int g_child_threads_count = 0;
+static pthread_mutex_t g_child_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 void* child_thread_fn(void *arg) {
     (void)arg;
-    for (;;) {
-        pause();
+    /* Wątek dziecka symuluje obecność dziecka w grupie.
+     * Kończy się gdy flaga g_child_threads_should_exit zostanie ustawiona
+     * lub proces się kończy.
+     */
+    while (!g_child_threads_should_exit) {
+        usleep(100000);  /* 100ms - sprawdzaj flagę co jakiś czas */
     }
     return NULL;
 }
@@ -98,6 +107,26 @@ int spawn_child_thread(void) {
         perror("pthread_create");
         return -1;
     }
-    pthread_detach(t);
+    /* Zapisz wątek do późniejszego zatrzymania */
+    pthread_mutex_lock(&g_child_mutex);
+    g_child_threads_count++;
+    g_child_threads = realloc(g_child_threads, g_child_threads_count * sizeof(pthread_t));
+    if (g_child_threads) {
+        g_child_threads[g_child_threads_count - 1] = t;
+    }
+    pthread_mutex_unlock(&g_child_mutex);
     return 0;
+}
+
+void stop_child_threads(void) {
+    pthread_mutex_lock(&g_child_mutex);
+    g_child_threads_should_exit = 1;
+    /* Czekaj na zakończenie wszystkich wątków dzieci */
+    for (int i = 0; i < g_child_threads_count; i++) {
+        pthread_join(g_child_threads[i], NULL);
+    }
+    free(g_child_threads);
+    g_child_threads = NULL;
+    g_child_threads_count = 0;
+    pthread_mutex_unlock(&g_child_mutex);
 }
