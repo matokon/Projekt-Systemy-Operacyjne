@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <signal.h>
 #include <time.h>
 #include "simulation.h"
 
@@ -84,7 +85,7 @@ void wait_for_pids(pid_t *pids, int count) {
     }
 }
 
-static volatile int g_child_threads_should_exit = 0;
+static volatile sig_atomic_t g_child_threads_should_exit = 0;
 static pthread_t *g_child_threads = NULL;
 static int g_child_threads_count = 0;
 static pthread_mutex_t g_child_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -109,24 +110,38 @@ int spawn_child_thread(void) {
     }
     /* Zapisz wątek do późniejszego zatrzymania */
     pthread_mutex_lock(&g_child_mutex);
-    g_child_threads_count++;
-    g_child_threads = realloc(g_child_threads, g_child_threads_count * sizeof(pthread_t));
-    if (g_child_threads) {
-        g_child_threads[g_child_threads_count - 1] = t;
+    int new_count = g_child_threads_count + 1;
+    pthread_t *new_threads = realloc(g_child_threads, new_count * sizeof(pthread_t));
+    if (new_threads) {
+        g_child_threads = new_threads;
+        g_child_threads[g_child_threads_count] = t;
+        g_child_threads_count = new_count;
+    } else {
+        /* realloc failed - wątek został utworzony ale nie zapisany.
+         * W przypadku pojedynczego procesu turysty to nie jest krytyczne -
+         * wątek i tak zakończy się gdy proces się kończy.
+         */
+        perror("realloc g_child_threads");
     }
     pthread_mutex_unlock(&g_child_mutex);
     return 0;
 }
 
 void stop_child_threads(void) {
-    pthread_mutex_lock(&g_child_mutex);
+    /* Ustaw flagę zakończenia */
     g_child_threads_should_exit = 1;
-    /* Czekaj na zakończenie wszystkich wątków dzieci */
-    for (int i = 0; i < g_child_threads_count; i++) {
-        pthread_join(g_child_threads[i], NULL);
-    }
-    free(g_child_threads);
+    
+    /* Zablokuj mutex i czekaj na zakończenie wszystkich wątków dzieci */
+    pthread_mutex_lock(&g_child_mutex);
+    int count = g_child_threads_count;
+    pthread_t *threads = g_child_threads;
     g_child_threads = NULL;
     g_child_threads_count = 0;
     pthread_mutex_unlock(&g_child_mutex);
+    
+    /* Join poza mutexem aby nie blokować */
+    for (int i = 0; i < count; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    free(threads);
 }
