@@ -89,10 +89,10 @@ int main() {
         maybe_resume(stop_since);
 
         if (g_stopped) {
-            // sleep(1);
+            usleep(100000);  /* 100ms - don't spin when stopped */
             continue;
         }
-        // sleep(2);
+        usleep(1000);  /* 1ms - avoid busy loop */
         ipc_sem_wait(sem_shm);
         if (cablecar->occupied > 0 && cablecar->seats[cablecar->head].state == SEAT_OCCUPIED) {
             seat_t *seat = &cablecar->seats[cablecar->head];

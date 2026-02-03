@@ -88,11 +88,11 @@ int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_unt
 
     if (sim_is_closed()) {
         printf(CLR_RED_B"    TURYSTA %d: bramki zamkniete (po Tk)\n" RESET, getpid());
-        return 1;
+        return 0;  /* Zwróć 0 żeby turysta nie szedł do platformy */
     }
     if (pass_type != PASS_SINGLE && sim_now() > valid_until) {
         printf(CLR_RED_B"    TURYSTA %d: karnet niewazny (po czasie)\n" RESET, getpid());
-        return 1;
+        return 0;  /* Zwróć 0 żeby turysta nie szedł do platformy */
     }
     if (group_size < 1) group_size = 1;
 
@@ -106,6 +106,11 @@ int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_unt
             int vw = g_cablecar->vip_waiting;
             ipc_sem_post(g_sem_shm);
             if (vw == 0) break;
+            /* Sprawdź zamknięcie podczas czekania na VIP */
+            if (sim_is_closed()) {
+                printf(CLR_RED_B"    TURYSTA %d: bramki zamkniete (czekajac na VIP)\n" RESET, getpid());
+                return 0;
+            }
             usleep(1000);
         }
     }
@@ -113,6 +118,22 @@ int tourist_do_lower_gate(uint32_t pass_id, pass_type_t pass_type, int valid_unt
     for (int i = 0; i < group_size; i++) {
         if (ipc_sem_wait(sem_inside) < 0) return -1;
     }
+    
+    /* Sprawdź zamknięcie PO pobraniu tokenów z sem_inside */
+    if (sim_is_closed()) {
+        /* Zwolnij wszystkie pobrane tokeny */
+        for (int i = 0; i < group_size; i++) {
+            ipc_sem_post(sem_inside);
+        }
+        if (is_vip) {
+            ipc_sem_wait(g_sem_shm);
+            if (g_cablecar->vip_waiting > 0) g_cablecar->vip_waiting--;
+            ipc_sem_post(g_sem_shm);
+        }
+        printf(CLR_RED_B"    TURYSTA %d: bramki zamkniete (po wejsciu)\n" RESET, getpid());
+        return 0;
+    }
+    
     if (ipc_sem_wait(sem_gate4) < 0) return -1;
     log_report(pass_id, "lower");
     ipc_sem_post(sem_gate4);

@@ -182,7 +182,7 @@ void platform_try_form_groups(int qid, cablecar_t *cablecar, int sem_shm, int se
          * z niepełnym krzesłem (marnując pozostałe miejsca).
          * To zapobiega deadlockowi gdy są same grupy o rozmiarach nie dających sumy 4.
          */
-        if (*peds_n > 0 && *bikers_n == 0) {
+        if (*peds_n > 0) {
             int gs = peds[0].size;
             if (gs > 0 && gs <= 4) {
                 pid_t ped_pid = peds[0].pid;
@@ -192,6 +192,16 @@ void platform_try_form_groups(int qid, cablecar_t *cablecar, int sem_shm, int se
                 platform_send_res(qid, ped_pid);
                 continue;
             }
+        }
+        /* Fallback dla pojedynczego bikera - obsłuż go samego */
+        if (*bikers_n >= 1 && *peds_n == 0) {
+            pid_t biker_pid = bikers[0];
+            memmove(&bikers[0], &bikers[1], (*bikers_n - 1) * sizeof(pid_t));
+            *bikers_n -= 1;
+            pid_t pids[1] = { biker_pid };
+            reserve_seat(cablecar, sem_shm, sem_chairs, pids, 1, 2);
+            platform_send_res(qid, biker_pid);
+            continue;
         }
         break;
     }
