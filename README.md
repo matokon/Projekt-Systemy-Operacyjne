@@ -1,13 +1,11 @@
-# Kolej linowa - symulacja procesow i IPC
+## Nowe mechanizmy po konsultacjach (stan aktualny)
 
-## Nowe mechanizmy po konsultacjach (stabilność IPC)
-- **Semafor kredytowy turystów (`sem_tourists`, 200 slotów)**: generator bierze token przed forkiem, turysta oddaje przy wyjściu (`atexit`). Zapobiega lawinie procesów i zapychaniu kolejek bez żadnych sleepów.
-- **Łagodne zamykanie peronu**: `employee1` po `PLAT_SHUTDOWN` budzi wszystkie semafory (bramki, limity, krzesła, wyjścia) i przez ~0.5 s drenuje kolejkę peronu, odsyłając spóźnionym `PLAT_SHUTDOWN` w trybie `IPC_NOWAIT`.
-- **Nieblokujące sendy do kolejek (IPC_NOWAIT)**: turysta rezygnuje, gdy kolejka biletowa/peronowa jest pełna zamiast się blokować; brak wiszących `msgsnd`.
-- **Timeouty po stronie turystów**: oczekiwanie na odpowiedź peronu z limitem czasu (5 s) i zwrotem semaforów, żeby nie blokować strefy inside.
-- **Porządki w logach**: ciche traktowanie ENOMSG/EIDRM/EINVAL w IPC, brak spamujących perrorów po zamknięciu.
+- **Kolejki blokujace**: wysylki/odbior do kasy i peronu sa blokujace (`msgsnd`/`msgrcv`); priorytet VIP zapewnia mtype (MT_VIP_OR_CTRL vs MT_NORMAL).
+- **Logika grup na peron**: kolejnosc prob: (1) 2 rowerzystow; (2) 1 rowerzysta + piesi o sumie 2 miejsc; (3) 4 pieszych; (4) piesi z grupa >1; (5) awaryjnie pojedynczy naprzemiennie rower/pieszy, by nikt nie glodzil. Rezerwacja przez semafor krzesel (36) + mutex shm.
+- **VIP**: dolne bramki zwiekszaja `vip_waiting` w shm i zatrzymuja zwyklych do momentu wejscia VIP; licznik czyszczony po wejsciu lub rezygnacji. Peron odbiera z priorytetem VIP (mtype MT_VIP_OR_CTRL).
+- **Zamykanie peronu**: po `PLAT_SHUTDOWN` budzimy semafory i drenazer peronu odsyla zalegle `PLAT_SHUTDOWN`, bez uzycia `IPC_NOWAIT`.
 
-Symulacja nadal odwzorowuje kolej krzesełkową z VIP-ami, dziećmi, rowerzystami, STOP/WZNOWIENIE itp., ale powyższe zmiany eliminują zwisy i przecieki kolejek.
+Symulacja nadal odwzorowuje kolej krzeselkowa z VIP-ami, dziecmi, rowerzystami i STOP/WZNOWIENIE, a powyzsze usprawnienia usuwaja zwisy i bledy kolejkowania.
 
 ## 1. Srodowisko i narzedzia
 
@@ -145,19 +143,19 @@ Parametr `stop_once`:
 
 
 - Czy program nigdy nie usadzi na jednym krzesełku więcej osób niż pozwalają zasady?  
-  Tak, jest to obsłużone w: [platform_try_form_groups – linie 129-189](src/platform_queue.c#L129-L189).
+  Tak, jest to obsłużone w: [platform_try_form_groups – linie 128-249](src/platform_queue.c#L128-L249).
 
 - Czy kolej natychmiast zatrzymuje ruch krzesełek, nie wpuszcza nowych osób na peron?  
-  Tak, pracownicy komunikują się sygnałami STOP/WZNOWIENIE: [employee1 – linie 58-126](src/employee1.c#L58-L126) oraz [employee2 – linie 17-80](src/employee2.c#L17-L80).
+  Tak, pracownicy komunikują się sygnałami STOP/WZNOWIENIE: [employee1 – linie 20-42](src/employee1.c#L20-L42) oraz [employee2 – linie 17-45](src/employee2.c#L17-L45).
 
 - Czy VIPy przechodzą do bramek przed zwykłą kolejką?  
-  Tak, peron odbiera z priorytetem VIP (msgrcv na mtype -MT_NORMAL): [employee1 – linie 173-182](src/employee1.c#L173-L182).
+  Tak, peron odbiera z priorytetem VIP (msgrcv na mtype -MT_NORMAL): [employee1 – linie 167](src/employee1.c#L167).
 
 - Czy pracownicy wstrzymają wpuszczanie ludzi jeżeli na koleji będzie 36 osób?  
-  Tak, limituje to semafor krzesełek: [reserve_seat – linie 114-126](src/platform_queue.c#L114-L126), zwolnienie przy zjeździe w [employee2 – linie 108-118](src/employee2.c#L108-L118), semafor ustawiony na 36 w [main – linie 42-49](src/main.c#L42-L49).
+  Tak, limituje to semafor krzesełek: [reserve_seat – linie 112-125](src/platform_queue.c#L112-L125), zwolnienie przy zjeździe w [employee2 – linie 103-112](src/employee2.c#L103-L112), semafor ustawiony na 36 w [main – linie 49](src/main.c#L49).
 
 - Czy program poprawnie zakończył działanie, czy nie pozostawił żadnych procesów zombie i czy wątki/procesy są zakończone?  
-  Sprzątanie IPC: `cleanup_ipc` usuwa kolejki/semafory/shm [main_utils.c – linie 34-48](src/utils/main_utils.c#L34-L48), wywołanie na końcu `main` po raporcie. Zrzut `ipcs` po zakończeniu: ![ipcs clean](image-2.png)
+  Sprzątanie IPC: `cleanup_ipc` usuwa kolejki/semafory/shm [main_utils.c – linie 32-51](src/utils/main_utils.c#L32-L51), wywołanie na końcu `main` po raporcie. Zrzut `ipcs` po zakończeniu: ![ipcs clean](image-2.png)
 
 ## 8. Funkcje wymagane przez projekt (gdzie szukać)
 

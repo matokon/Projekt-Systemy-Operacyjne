@@ -3,11 +3,9 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <time.h>
-#include <errno.h>
 #include "simulation.h"
-#include "ipc.h"
 
-/* Fork+exec procesu potomnego, z komunikatem błędu gdy nie powiedzie się exec. */
+/* Forkuje i execl(path, argv0); w rodzicu zwraca PID, przy bledzie wychodzi. */
 pid_t start_process(const char *path, const char *argv0, const char *msg)
 {
     pid_t pid = fork();
@@ -22,9 +20,9 @@ pid_t start_process(const char *path, const char *argv0, const char *msg)
     return pid;
 }
 
-/* Przez zadany czas forkuje procesy child, kontrolując liczbę aktywnych kredytem sem_tourists. */
+/* Przez duration_sec losowo tworzy nowe procesy path/argv0 i zbiera ich PIDy. */
 pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
-                                          int duration_sec, int sem_tourists, int *out_count)
+                                          int duration_sec, int *out_count)
 {
     time_t start = time(NULL);
 
@@ -36,29 +34,23 @@ pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
         exit(1);
     }
     int n1 = 5000;
+    time_t deadline = start + duration_sec;
     while (n1--) {
-        if (time(NULL) - start >= duration_sec) break;
+        if (time(NULL) >= deadline) break;
 
-        /* Ograniczenie liczby aktywnych turystów tokenami semafora. */
-        if (ipc_sem_wait(sem_tourists) < 0) break;
-
-        if (time(NULL) - start >= duration_sec) {
-            ipc_sem_post(sem_tourists);
-            break;
-        }
+        int ms = (rand() % 900) + 100;
+        // usleep((useconds_t)ms * 1000);
 
         if (time(NULL) - start >= duration_sec) break;
 
         pid_t pid = fork();
         if (pid == -1) {
             perror("fork spawn");
-            ipc_sem_post(sem_tourists);
             break;
         }
         if (pid == 0) {
             execl(path, argv0, (char *)NULL);
             perror("execl spawn");
-            ipc_sem_post(sem_tourists);
             _exit(1);
         }
 
@@ -79,7 +71,7 @@ pid_t* spawn_processes_for_seconds_collect(const char *path, const char *argv0,
     return pids;
 }
 
-/* waitpid odporne na EINTR. */
+/* Czeka na podany pid, ignorujac EINTR. */
 static void waitpid_eintr(pid_t pid) {
     int status;
     while (1) {
@@ -89,23 +81,23 @@ static void waitpid_eintr(pid_t pid) {
     }
 }
 
-/* Blokująco czeka na wszystkie PIDy z tablicy. */
+/* Czeka na wszystkie pidy z tablicy pids. */
 void wait_for_pids(pid_t *pids, int count) {
     for (int i = 0; i < count; i++) {
         waitpid_eintr(pids[i]);
     }
 }
 
-/* Wątek "dziecka" – sztuczne obciążenie, pętla nieskończona. */
+/* Funkcja watku potomnego, ktory tylko pauzuje. */
 void* child_thread_fn(void *arg) {
     (void)arg;
     for (;;) {
-        // sleep(3600);
+        pause();
     }
     return NULL;
 }
 
-/* Startuje odłączony wątek reprezentujący dziecko turysty. */
+/* Tworzy watek dziecka uruchamiajacy child_thread_fn; zwraca 0 lub -1. */
 int spawn_child_thread(void) {
     pthread_t t;
     if (pthread_create(&t, NULL, child_thread_fn, NULL) != 0) {

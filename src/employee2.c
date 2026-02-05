@@ -14,13 +14,13 @@ static volatile sig_atomic_t g_initiator = 0;
 static volatile sig_atomic_t g_sent_ack = 0;
 static volatile sig_atomic_t g_other_pid = 0;
 
-/* SIGTERM/SIGINT – sygnalizuje zakończenie pętli emp2. */
+/* Obsluga SIGTERM/SIGINT: ustawia flage do bezpiecznego wyjscia. */
 static void handle_term(int sig) {
     (void)sig;
     g_stop = 1;
 }
 
-/* SIGUSR1 – pauza emp2 inicjowana przez emp1. */
+/* Obsluga SIGUSR1: zatrzymuje prace pracownika 2. */
 static void on_sigusr1(int sig) {
     (void)sig;
     g_stopped = 1;
@@ -29,7 +29,7 @@ static void on_sigusr1(int sig) {
     printf(CLR_BLUE"    Pracownik2 %d: STOP (signal1)\n" RESET, getpid());
 }
 
-/* SIGUSR2 – wznowienie emp2 / potwierdzenie stop_once. */
+/* Obsluga SIGUSR2: wznawia prace, ew. odsyla potwierdzenie. */
 static void on_sigusr2(int sig) {
     (void)sig;
     g_stopped = 0;
@@ -44,7 +44,7 @@ static void on_sigusr2(int sig) {
     }
 }
 
-/* Rejestruje sygnały i zapisuje PID emp2 do shmem (chronione sem_shm). */
+/* Rejestruje obsluge sygnalow i zapisuje PID pracownika w cablecar. */
 static void init_stop_signals(cablecar_t *cablecar, int sem_shm) {
     signal(SIGTERM, handle_term);
     signal(SIGINT, handle_term);
@@ -55,22 +55,17 @@ static void init_stop_signals(cablecar_t *cablecar, int sem_shm) {
     ipc_sem_post(sem_shm);
 }
 
-/* Czeka aż emp1 zapisze swój PID do shmem. */
+/* Odczytuje PID partnera (emp1) z pamieci wspolnej i semafora gotowosci. */
 static void wait_for_other_pid(cablecar_t *cablecar, int sem_shm) {
-    /* Blokujące czekanie na PID emp1 w shmem – bez timeoutu/logów. */
-    for (;;) {
-        ipc_sem_wait(sem_shm);
-        pid_t other = cablecar->emp1_pid;
-        ipc_sem_post(sem_shm);
-        if (other > 0) {
-            g_other_pid = other;
-            return;
-        }
-        sched_yield();
-    }
+    int sem_ready = ipc_get_sem_from_env(IPC_ENV_SEM_EMP_READY);
+    ipc_sem_post(sem_ready);
+    ipc_sem_wait(sem_ready);
+    ipc_sem_wait(sem_shm);
+    g_other_pid = cablecar->emp1_pid;
+    ipc_sem_post(sem_shm);
 }
 
-/* Próbuje wznowić stop_once po ~9s, wysyłając SIGUSR2 do emp1. */
+/* Po odpowiednim czasie wysyla SIGUSR2 do partnera, by zakonczyc pauze. */
 static void maybe_resume(time_t stop_since) {
     if (!g_stopped || !g_initiator || g_await_ack) return;
     if (stop_since <= 0 || time(NULL) - stop_since < 9) return;
@@ -79,7 +74,7 @@ static void maybe_resume(time_t stop_since) {
     kill((pid_t)g_other_pid, SIGUSR2);
 }
 
-/* Emp2: opróżnia kolejkę krzeseł (head++), reaguje na pauzy/terminację. */
+/* Glowna petla pracownika 2: zwalnia miejsca z wagonika, reaguje na stop/shutdown. */
 int main() {
     printf(CLR_BLUE"    Pracownik2 Start: %d" RESET "\n", getpid());
 

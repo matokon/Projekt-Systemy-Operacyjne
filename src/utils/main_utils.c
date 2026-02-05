@@ -8,7 +8,7 @@
 #include "ipc.h"
 #include "cablecar.h"
 
-/* Ustawia zmienną środowiskową na wartość całkowitą. */
+/* Ustawia zmienna env o podanej nazwie na wartosc int. */
 void set_env_int(const char *name, int value) {
     char buf[32];
     snprintf(buf, sizeof(buf), "%d", value);
@@ -18,7 +18,7 @@ void set_env_int(const char *name, int value) {
     }
 }
 
-/* Publikuje ID semaforów do środowiska (gate4/gate3/inside/chairs/shm/exit2). */
+/* Zapisuje identyfikatory semaforow do odpowiednich zmiennych srodowiskowych. */
 void set_env_sems(int sem_gate4, int sem_gate3, int sem_inside,
                   int sem_chairs, int sem_shm, int sem_exit2) {
     ipc_set_env_sem(IPC_ENV_SEM_GATE4, sem_gate4);
@@ -29,25 +29,28 @@ void set_env_sems(int sem_gate4, int sem_gate3, int sem_inside,
     ipc_set_env_sem(IPC_ENV_SEM_EXIT2, sem_exit2);
 }
 
-/* Nisz­czy kolejki, semafory i segmenty shm przy sprzątaniu. */
+/* Usuwa wszystkie obiekty IPC, odlacza i kasuje pamiec cablecar. */
 void cleanup_ipc(int qid, int platform_qid,
                  int sem_gate4, int sem_gate3, int sem_inside,
-                 int sem_chairs, int sem_shm, int sem_tourists, int sem_exit2,
+                 int sem_chairs, int sem_shm, int sem_exit2,
+                 int sem_q_guard, int sem_pq_guard, int sem_emp_ready,
                  cablecar_t *cablecar, int shmid) {
-    if (qid >= 0) ipc_destroy_queue(qid);
-    if (platform_qid >= 0) ipc_destroy_queue(platform_qid);
+    ipc_destroy_queue(qid);
+    ipc_destroy_queue(platform_qid);
     ipc_destroy_sem(sem_gate4);
     ipc_destroy_sem(sem_gate3);
     ipc_destroy_sem(sem_inside);
     ipc_destroy_sem(sem_chairs);
-    ipc_destroy_sem(sem_tourists);
+    ipc_destroy_sem(sem_q_guard);
+    ipc_destroy_sem(sem_pq_guard);
+    ipc_destroy_sem(sem_emp_ready);
     ipc_destroy_sem(sem_exit2);
     ipc_detach_shm(cablecar);
     ipc_destroy_shm(shmid);
     ipc_destroy_sem(sem_shm);
 }
 
-/* Liczy przejazdy z logu i dopisuje podsumowanie do pliku wyjściowego. */
+/* Czyta log_path i zlicza przejazdy przez gate=platform, dopisujac raport do out_path. */
 int generate_report(const char *log_path, const char *out_path) {
     FILE *in = fopen(log_path, "r");
     if (!in) {
@@ -98,7 +101,7 @@ int generate_report(const char *log_path, const char *out_path) {
     return 0;
 }
 
-/* Czeka aż kolejka krzesełek będzie pusta (chronione sem_shm). */
+/* Czeka az wagonik bedzie pusty, sprawdzajac occupied pod sem_shm. */
 void wait_for_cablecar_empty(cablecar_t *cablecar, int sem_shm) {
     for (;;) {
         int occ = 0;
@@ -110,17 +113,19 @@ void wait_for_cablecar_empty(cablecar_t *cablecar, int sem_shm) {
     }
 }
 
-/* Parsuje argument linii poleceń na int. */
+/* Parsuje napis na int (strtol). */
 int parse_arg_int(const char *s) {
     long v = strtol(s, NULL, 10);
     return (int)v;
 }
 
+/* Inicjalizuje strukture cablecar zerujac zajetosc, PIDy i pola miejsc. */
 void cablecar_init(cablecar_t *cablecar)
 {
     cablecar->head = 0;
     cablecar->tail = 0;
     cablecar->occupied = 0;
+    cablecar->vip_waiting = 0;
 
     for (int i = 0; i < 72; i++) {
         cablecar->seats[i].state = SEAT_FREE;
