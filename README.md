@@ -3,7 +3,7 @@
 - **Kolejki blokujace**: wysylki/odbior do kasy i peronu sa blokujace (`msgsnd`/`msgrcv`); priorytet VIP zapewnia mtype (MT_VIP_OR_CTRL vs MT_NORMAL).
 - **Logika grup na peron**: kolejnosc prob: (1) 2 rowerzystow; (2) 1 rowerzysta + piesi o sumie 2 miejsc; (3) 4 pieszych; (4) piesi z grupa >1; (5) awaryjnie pojedynczy naprzemiennie rower/pieszy, by nikt nie glodzil. Rezerwacja przez semafor krzesel (36) + mutex shm.
 - **VIP**: dolne bramki zwiekszaja `vip_waiting` w shm i zatrzymuja zwyklych do momentu wejscia VIP; licznik czyszczony po wejsciu lub rezygnacji. Peron odbiera z priorytetem VIP (mtype MT_VIP_OR_CTRL).
-- **Zamykanie peronu**: po `PLAT_SHUTDOWN` budzimy semafory i drenazer peronu odsyla zalegle `PLAT_SHUTDOWN`, bez uzycia `IPC_NOWAIT`.
+- **Zamykanie peronu**: po `PLAT_SHUTDOWN` odsyla zalegle `PLAT_SHUTDOWN`, bez uzycia `IPC_NOWAIT`.
 
 Symulacja nadal odwzorowuje kolej krzeselkowa z VIP-ami, dziecmi, rowerzystami i STOP/WZNOWIENIE, a powyzsze usprawnienia usuwaja zwisy i bledy kolejkowania.
 
@@ -63,10 +63,10 @@ Parametr `stop_once`:
 
 ### `src/main.c`
 - Parsuje Tp/Tk (i stop_once), sprawdza zakres, ustawia czas startu.
-- Tworzy kolejki, semafory (bramki 4/3, limit N, 36 krzesel, 2 wyjscia, mutex shm, kredyt turystów 200) i pamiec dzielona; publikuje je w ENV.
+- Tworzy kolejki, semafory (bramki 4/3, limit N, 36 krzesel, 2 wyjscia, mutex shm) i pamiec dzielona; publikuje je w ENV.
 - Inicjalizuje stan kolei w shm (ring 72 krzesel, liczniki, pid pracownikow), czyści `report.txt`.
-- Uruchamia kasjera, pracownikow, generator turystow (spawn przez czas Tk-Tp z kontrolą sem_tourists).
-- Po Tk: wysyła `PLAT_SHUTDOWN`, czeka na opróżnienie krzeseł, wysyła shutdown do kasy/peronu (z krótkimi timeoutami na ACK), ubija employee2, czeka na procesy, generuje raport, sprząta IPC.
+- Uruchamia kasjera, pracownikow, generator turystow.
+- Po Tk: wysyła `PLAT_SHUTDOWN`, czeka na opróżnienie krzeseł, wysyła shutdown do kasy/peronu, ubija employee2, czeka na procesy, generuje raport, sprząta IPC.
 
 ### `src/cashier.c`
 - Slucha kolejki biletowej; kazdy request ma pid, wiek, VIP, rowerzysta, liczbe biletow (w tym ulgowych).
@@ -79,7 +79,6 @@ Parametr `stop_once`:
 - Obsługuje kolejkę peronu (priorytet VIP): wpuszcza do Tk, po Tk odsyła `PLAT_SHUTDOWN`.
 - Kolejkuje rowerzystów i pieszych, formuje składy (2 rowery / 1 rower+2 pieszych / 4 pieszych), rezerwuje miejsca w shm (limit 36).
 - Sygnały STOP/WZNOWIENIE (SIGUSR1/2), tryb `stop_once` (pauza po 5 s, wznowienie po ~9 s).
-- Na `PLAT_SHUTDOWN`: budzi wszystkie semafory, flushuje oczekujących, drenuje kolejkę ~0.5 s w trybie IPC_NOWAIT i wysyła ACK.
 
 ### `src/employee2.c`
 - Rejestruje PID w shm, czeka na PID emp1.
@@ -87,14 +86,13 @@ Parametr `stop_once`:
 - Opróżnia krzesła z ringu (head++, zwalnia semafor krzeseł); zatrzymuje się na sygnał/koniec.
 
 ### `src/tourist.c`
-- Pobiera kredyt z `sem_tourists` (przed forkiem), oddaje przy wyjściu (`atexit`).
 - Losuje dzieci (max 2); wtedy wyłącza rower.
-- Wysyła żądanie do kasy (IPC_NOWAIT — rezygnacja gdy pełna), czeka na odpowiedź.
-- Etapy: dolne bramki (limit N + 4 bramki), peron (PLAT_REQ z timeoutem, priorytet VIP), górne wyjście (2 pasy). Loguje do `report.txt`.
-- Jednorazowy przejazd (po zmianach: jeden zjazd i koniec procesu).
+- Wysyła żądanie do kasy, czeka na odpowiedź.
+- Etapy: dolne bramki (limit N + 4 bramki), peron (priorytet VIP), górne wyjście (2 pasy). Loguje do `report.txt`.
+- Wielokrotne przejazdy aż do wygaśnięcia karnetu/czasu
 
 ### `src/ipc.c`
-- Wrappery na IPC: kolejki (blokujące i IPC_NOWAIT), semafory (wait/post), shm; helpery ENV; ciche ENOMSG/EIDRM/EINVAL po zamknięciu.
+- Wrappery na IPC: kolejki, semafory (wait/post), shm; helpery ENV; błędy wypisywane przez perror.
 
 ### `src/platform_queue.c`
 - Bufory oczekujących: rowerzyści osobno, piesi z rozmiarem grupy.
@@ -102,7 +100,7 @@ Parametr `stop_once`:
 
 ### `src/utils/tourist_utils.c`
 - Bramki dolne: weryfikuje ważność karnetu, rezerwuje limit N i gate4, loguje.
-- Peron: PLAT_REQ (IPC_NOWAIT, timeout 5 s), w razie rezygnacji oddaje sem_inside; loguje przejście.
+- Peron: PLAT_REQ, w razie rezygnacji oddaje sem_inside; loguje przejście.
 - Wyjście górne: sem_exit2 (2 pasy), loguje; helpery ENV/log/losowania dzieci.
 
 ### `src/utils/main_utils.c`
